@@ -909,85 +909,32 @@ class SkullKingGame {
     }
     // PWA Install Functionality
     initializePWA() {
-        // Guard for test environment or browsers without PWA support
-        if (typeof window === 'undefined' || !window.addEventListener) {
-            return;
-        }
-        // Listen for the beforeinstallprompt event
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent the mini-infobar from appearing on mobile
-            e.preventDefault();
-            // Store the event so it can be triggered later
-            this.deferredPrompt = e;
-            // Update UI to show install button
-            this.showInstallPrompt();
-        });
-        // Listen for the app installed event
-        window.addEventListener('appinstalled', () => {
-            // Hide the install promotion
-            this.hideInstallPrompt();
-            // Clear the deferredPrompt so it can be garbage collected
-            this.deferredPrompt = null;
-            console.log('PWA was installed');
-        });
-        // Check if already in standalone mode (installed) - guard for test environment
-        if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
-            this.hideInstallPrompt();
-        }
-        // For iOS Safari, show install instructions
-        this.showIOSInstallPrompt();
-        // Always show manual install button for testing
-        this.showManualInstallButton();
-    }
-    showInstallPrompt() {
         // Guard for test environment
         if (typeof document === 'undefined')
             return;
-        // Create or show install button for Android/desktop
-        let installBtn = document.getElementById('pwa-install-btn');
+        // Don't show if already in standalone mode (installed)
+        if ((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+            window.navigator.standalone) {
+            return;
+        }
+        // Show simple install button
+        this.showInstallButton();
+    }
+    showInstallButton() {
+        let installBtn = document.getElementById('install-app-btn');
         if (!installBtn) {
             installBtn = document.createElement('button');
-            installBtn.id = 'pwa-install-btn';
-            installBtn.className = 'pwa-install-btn';
-            installBtn.innerHTML = '📱 Add to Home Screen';
-            installBtn.addEventListener('click', () => this.handleInstallClick());
-            // Add to header or appropriate location
+            installBtn.id = 'install-app-btn';
+            installBtn.className = 'install-app-btn';
+            installBtn.innerHTML = '📱 Install App';
+            installBtn.addEventListener('click', () => this.showInstallInstructions());
+            // Add to header
             const header = document.querySelector('.header') || document.body;
             header.appendChild(installBtn);
         }
         installBtn.style.display = 'block';
     }
-    showManualInstallButton() {
-        // Always show a manual install button for testing and fallback
-        if (typeof document === 'undefined')
-            return;
-        // Don't show if already in standalone mode
-        if ((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-            window.navigator.standalone) {
-            return;
-        }
-        let manualBtn = document.getElementById('manual-install-btn');
-        if (!manualBtn) {
-            manualBtn = document.createElement('button');
-            manualBtn.id = 'manual-install-btn';
-            manualBtn.className = 'pwa-install-btn manual-install';
-            manualBtn.innerHTML = '⚓ Install App';
-            manualBtn.style.top = '70px'; // Position below auto-install button
-            manualBtn.addEventListener('click', () => {
-                if (this.deferredPrompt) {
-                    this.handleInstallClick();
-                }
-                else {
-                    // Show manual instructions
-                    this.showManualInstructions();
-                }
-            });
-            const header = document.querySelector('.header') || document.body;
-            header.appendChild(manualBtn);
-        }
-        manualBtn.style.display = 'block';
-    }
-    showManualInstructions() {
+    showInstallInstructions() {
         // Show instructions for manual installation
         let modal = document.getElementById('install-instructions-modal');
         if (!modal) {
@@ -996,7 +943,7 @@ class SkullKingGame {
             modal.className = 'install-modal';
             modal.innerHTML = `
                 <div class="install-modal-content">
-                    <h3>⚓ Add to Home Screen</h3>
+                    <h3>📱 Add to Home Screen</h3>
                     <div class="install-instructions">
                         <p><strong>For Android Chrome:</strong></p>
                         <ol>
@@ -1017,68 +964,6 @@ class SkullKingGame {
             document.body.appendChild(modal);
         }
         modal.style.display = 'flex';
-    }
-    hideInstallPrompt() {
-        // Guard for test environment
-        if (typeof document === 'undefined')
-            return;
-        const installBtn = document.getElementById('pwa-install-btn');
-        if (installBtn) {
-            installBtn.style.display = 'none';
-        }
-        const iosPrompt = document.getElementById('ios-install-prompt');
-        if (iosPrompt) {
-            iosPrompt.style.display = 'none';
-        }
-    }
-    showIOSInstallPrompt() {
-        // Guard for test environment
-        if (typeof window === 'undefined' || typeof navigator === 'undefined' || typeof document === 'undefined')
-            return;
-        // Check if we're on iOS Safari (not in standalone mode)
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isInStandaloneMode = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone;
-        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-        if (isIOS && !isInStandaloneMode && isSafari) {
-            let iosPrompt = document.getElementById('ios-install-prompt');
-            if (!iosPrompt) {
-                iosPrompt = document.createElement('div');
-                iosPrompt.id = 'ios-install-prompt';
-                iosPrompt.className = 'ios-install-prompt';
-                iosPrompt.innerHTML = `
-                    <div class="ios-install-content">
-                        <span class="ios-install-icon">📱</span>
-                        <p>Add to Home Screen: Tap <span class="share-icon">⎘</span> then "Add to Home Screen"</p>
-                        <button class="ios-install-close" onclick="this.parentElement.parentElement.style.display='none'">×</button>
-                    </div>
-                `;
-                document.body.appendChild(iosPrompt);
-            }
-            iosPrompt.style.display = 'block';
-            // Auto-hide after 10 seconds
-            setTimeout(() => {
-                if (iosPrompt)
-                    iosPrompt.style.display = 'none';
-            }, 10000);
-        }
-    }
-    async handleInstallClick() {
-        if (!this.deferredPrompt) {
-            return;
-        }
-        // Show the install prompt
-        this.deferredPrompt.prompt();
-        // Wait for the user to respond to the prompt
-        const { outcome } = await this.deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-            console.log('User accepted the install prompt');
-        }
-        else {
-            console.log('User dismissed the install prompt');
-        }
-        // Clear the deferredPrompt
-        this.deferredPrompt = null;
-        this.hideInstallPrompt();
     }
     // Public method for testing the scoring logic
     testCalculateRoundScore(bid, actual, bonus, roundNumber) {
