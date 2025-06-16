@@ -340,6 +340,10 @@ class GameViewModel {
     getRoundCount() {
         return this.state.rounds.length;
     }
+    // Get players sorted by score (highest first)
+    getPlayersSortedByScore() {
+        return [...this.state.players].sort((a, b) => b.score - a.score);
+    }
     // Commentary generation for a specific round
     generateRoundCommentary(roundData) {
         const perfectPlayers = roundData.playerData.filter(p => p.bid === p.actual);
@@ -658,7 +662,9 @@ class SkullKingGame {
         const scoreDisplay = document.getElementById('score-display');
         if (!scoreDisplay)
             return;
-        scoreDisplay.innerHTML = players.map(player => `
+        // Get players sorted by score from the view model
+        const sortedPlayers = this.viewModel.getPlayersSortedByScore();
+        scoreDisplay.innerHTML = sortedPlayers.map(player => `
             <div class="player-score">
                 <h4>${player.name}</h4>
                 <div class="score-value">${player.score}</div>
