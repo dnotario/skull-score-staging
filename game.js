@@ -130,6 +130,39 @@ class GameViewModel {
             }
         }
     }
+    // Input Validation
+    validateSinglePlayerInput(bid, actual, bonus, playerName, roundNumber) {
+        const targetRound = roundNumber || this.state.currentRound;
+        // Check for invalid numbers (NaN)
+        if (isNaN(bid) || isNaN(actual) || isNaN(bonus)) {
+            return `Invalid number entered for ${playerName}. Please enter valid numbers only.`;
+        }
+        // Integer validation
+        if (!Number.isInteger(bid) || !Number.isInteger(actual) || !Number.isInteger(bonus)) {
+            return `All values must be whole numbers for ${playerName}.`;
+        }
+        // Basic validation
+        if (bid < 0 || actual < 0 || bonus < 0) {
+            return `Bid, actual tricks, and bonus must be non-negative for ${playerName}.`;
+        }
+        // Round-specific validation: bids and actual tricks can't exceed available cards
+        const maxTricks = this.getCardsPerRound(targetRound, this.state.players.length);
+        if (bid > maxTricks) {
+            return `${playerName}'s bid (${bid}) can't exceed ${maxTricks} tricks in round ${targetRound} with ${this.state.players.length} players.`;
+        }
+        if (actual > maxTricks) {
+            return `${playerName} can't win more than ${maxTricks} tricks in round ${targetRound} with ${this.state.players.length} players. Actual: ${actual}`;
+        }
+        // Bonus point validation - only applies when correctly predicting tricks
+        if (bid !== actual && bonus > 0) {
+            return `${playerName} can only earn bonus points when correctly predicting tricks! (Bid: ${bid}, Actual: ${actual})`;
+        }
+        // Reasonable bonus limits
+        if (Math.abs(bonus) > 100) {
+            return `${playerName}'s bonus points seem unreasonable (${bonus}). Please check your entry.`;
+        }
+        return null; // Valid
+    }
     // Round Management
     getCurrentRoundNumber() {
         return this.state.currentRound;
@@ -163,35 +196,12 @@ class GameViewModel {
     }
     validateRoundData(data, roundNumber) {
         const targetRound = roundNumber || this.state.currentRound;
+        // Validate each player's input
         for (const [playerName, playerData] of Object.entries(data)) {
             const { bid, actual, bonus } = playerData;
-            // Check for invalid numbers (NaN)
-            if (isNaN(bid) || isNaN(actual) || isNaN(bonus)) {
-                return `Invalid number entered for ${playerName}. Please enter valid numbers only.`;
-            }
-            // Integer validation (check first)
-            if (!Number.isInteger(bid) || !Number.isInteger(actual) || !Number.isInteger(bonus)) {
-                return `All values must be whole numbers for ${playerName}.`;
-            }
-            // Basic validation
-            if (bid < 0 || actual < 0) {
-                return `Bid and actual tricks must be non-negative for ${playerName}.`;
-            }
-            // Round-specific validation: bids and actual tricks can't exceed available cards
-            const maxTricks = this.getCardsPerRound(targetRound, this.state.players.length);
-            if (bid > maxTricks) {
-                return `${playerName}'s bid (${bid}) can't exceed ${maxTricks} tricks in round ${targetRound} with ${this.state.players.length} players.`;
-            }
-            if (actual > maxTricks) {
-                return `${playerName} can't win more than ${maxTricks} tricks in round ${targetRound} with ${this.state.players.length} players. Actual: ${actual}`;
-            }
-            // Bonus point validation - only applies when correctly predicting tricks
-            if (bid !== actual && bonus > 0) {
-                return `${playerName} can only earn bonus points when correctly predicting tricks! (Bid: ${bid}, Actual: ${actual})`;
-            }
-            // Reasonable bonus limits
-            if (Math.abs(bonus) > 100) {
-                return `${playerName}'s bonus points seem unreasonable (${bonus}). Please check your entry.`;
+            const validationError = this.validateSinglePlayerInput(bid, actual, bonus, playerName, targetRound);
+            if (validationError) {
+                return validationError;
             }
         }
         // Validate that total actual wins equals the number of tricks available
@@ -673,19 +683,25 @@ class SkullKingGame {
                 <div class="round-input-row">
                     <div class="input-group">
                         <label for="bid-${player.name}" class="input-label">Bid</label>
-                        <input type="number" id="bid-${player.name}" placeholder="0" min="0" max="${maxTricks}">
+                        <input type="number" id="bid-${player.name}" placeholder="0" min="0" max="${maxTricks}" oninput="game.updateRoundScore(&quot;${player.name}&quot;)">
                     </div>
                     <div class="input-group">
                         <label for="actual-${player.name}" class="input-label">Won</label>
-                        <input type="number" id="actual-${player.name}" placeholder="0" min="0" max="${maxTricks}">
+                        <input type="number" id="actual-${player.name}" placeholder="0" min="0" max="${maxTricks}" oninput="game.updateRoundScore(&quot;${player.name}&quot;)">
                     </div>
                     <div class="input-group">
                         <label for="bonus-${player.name}" class="input-label">Bonus</label>
-                        <input type="number" id="bonus-${player.name}" placeholder="0" min="0">
+                        <input type="number" id="bonus-${player.name}" placeholder="0" min="0" oninput="game.updateRoundScore(&quot;${player.name}&quot;)">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Score</label>
+                        <div id="score-${player.name}" class="computed-score">-</div>
                     </div>
                 </div>
             </div>
         `).join('');
+        // Initialize computed scores for all players
+        players.forEach(player => this.updateRoundScoreInternal(player.name));
     }
     updatePreviousRounds(rounds) {
         const container = document.getElementById('previous-rounds');
@@ -913,6 +929,41 @@ class SkullKingGame {
         // Set voice and speak
         setConsistentVoice();
     }
+    updateRoundScoreInternal(playerName) {
+        const bidInput = document.getElementById(`bid-${playerName}`);
+        const actualInput = document.getElementById(`actual-${playerName}`);
+        const bonusInput = document.getElementById(`bonus-${playerName}`);
+        const scoreDisplay = document.getElementById(`score-${playerName}`);
+        if (!bidInput || !actualInput || !bonusInput || !scoreDisplay)
+            return;
+        // Get input values
+        const bidValue = bidInput.value.trim();
+        const actualValue = actualInput.value.trim();
+        const bonusValue = bonusInput.value.trim();
+        // Only show score when both bid and actual have values (Option 1: Progressive Disclosure)
+        if (!bidValue || !actualValue) {
+            scoreDisplay.textContent = '-';
+            scoreDisplay.className = 'computed-score';
+            return;
+        }
+        // Parse values (bonus defaults to 0 if empty)
+        const bid = parseInt(bidValue);
+        const actual = parseInt(actualValue);
+        const bonus = bonusValue ? parseInt(bonusValue) : 0;
+        // Use the centralized validation
+        const validationError = this.viewModel.validateSinglePlayerInput(bid, actual, bonus, playerName);
+        if (validationError) {
+            scoreDisplay.textContent = '-';
+            scoreDisplay.className = 'computed-score invalid';
+            return;
+        }
+        // Calculate score
+        const currentRound = this.viewModel.getCurrentRoundNumber();
+        const score = this.viewModel.testCalculateRoundScore(bid, actual, bonus, currentRound);
+        // Display score with appropriate styling
+        scoreDisplay.textContent = score > 0 ? `+${score}` : score.toString();
+        scoreDisplay.className = `computed-score ${score > 0 ? 'positive' : score < 0 ? 'negative' : 'zero'}`;
+    }
     // Public API for HTML event handlers
     updateTempPlayer(index, value) {
         this.viewModel.updateTempPlayer(index, value);
@@ -920,6 +971,9 @@ class SkullKingGame {
     removePlayer(index) {
         this.viewModel.removeTempPlayer(index);
         this.updatePlayerInputs();
+    }
+    updateRoundScore(playerName) {
+        this.updateRoundScoreInternal(playerName);
     }
     handleUpdateLastRound() {
         // Remove the last round and get its data for pre-filling
@@ -943,6 +997,8 @@ class SkullKingGame {
                 actualInput.value = data.actual.toString();
             if (bonusInput)
                 bonusInput.value = data.bonus.toString();
+            // Update the computed score for this player
+            this.updateRoundScoreInternal(playerName);
         }
         // Scroll to the round inputs section for editing
         const roundInputsSection = document.getElementById('new-round');
@@ -1011,6 +1067,10 @@ class SkullKingGame {
     // Public method for testing the scoring logic
     testCalculateRoundScore(bid, actual, bonus, roundNumber) {
         return this.viewModel.testCalculateRoundScore(bid, actual, bonus, roundNumber);
+    }
+    // Public method for validation testing
+    testValidateSinglePlayerInput(bid, actual, bonus, playerName, roundNumber) {
+        return this.viewModel.validateSinglePlayerInput(bid, actual, bonus, playerName, roundNumber);
     }
 }
 // Initialize game
