@@ -136,6 +136,17 @@ class GameViewModel {
     }
     // Card distribution logic for Skull King (70 card deck)
     getCardsPerRound(roundNumber, playerCount) {
+        // Skull King is a 10-round game - rounds beyond 10 are invalid
+        if (roundNumber > 10) {
+            throw new Error(`Invalid round number: ${roundNumber}. Skull King only has 10 rounds.`);
+        }
+        // Basic validation
+        if (roundNumber < 1) {
+            throw new Error(`Invalid round number: ${roundNumber}. Round number must be 1 or greater.`);
+        }
+        if (playerCount < 1) {
+            throw new Error(`Invalid player count: ${playerCount}. Must have at least 1 player.`);
+        }
         const totalCards = 70;
         const idealCards = roundNumber;
         const cardsNeeded = idealCards * playerCount;
@@ -150,7 +161,8 @@ class GameViewModel {
     getMaxTricksForCurrentRound() {
         return this.getCardsPerRound(this.state.currentRound, this.state.players.length);
     }
-    validateRoundData(data) {
+    validateRoundData(data, roundNumber) {
+        const targetRound = roundNumber || this.state.currentRound;
         for (const [playerName, playerData] of Object.entries(data)) {
             const { bid, actual, bonus } = playerData;
             // Check for invalid numbers (NaN)
@@ -166,12 +178,12 @@ class GameViewModel {
                 return `Bid and actual tricks must be non-negative for ${playerName}.`;
             }
             // Round-specific validation: bids and actual tricks can't exceed available cards
-            const maxTricks = this.getMaxTricksForCurrentRound();
+            const maxTricks = this.getCardsPerRound(targetRound, this.state.players.length);
             if (bid > maxTricks) {
-                return `${playerName}'s bid (${bid}) can't exceed ${maxTricks} tricks in round ${this.state.currentRound} with ${this.state.players.length} players.`;
+                return `${playerName}'s bid (${bid}) can't exceed ${maxTricks} tricks in round ${targetRound} with ${this.state.players.length} players.`;
             }
             if (actual > maxTricks) {
-                return `${playerName} can't win more than ${maxTricks} tricks in round ${this.state.currentRound} with ${this.state.players.length} players. Actual: ${actual}`;
+                return `${playerName} can't win more than ${maxTricks} tricks in round ${targetRound} with ${this.state.players.length} players. Actual: ${actual}`;
             }
             // Bonus point validation - only applies when correctly predicting tricks
             if (bid !== actual && bonus > 0) {
@@ -181,6 +193,12 @@ class GameViewModel {
             if (Math.abs(bonus) > 100) {
                 return `${playerName}'s bonus points seem unreasonable (${bonus}). Please check your entry.`;
             }
+        }
+        // Validate that total actual wins equals the number of tricks available
+        const maxTricks = this.getCardsPerRound(targetRound, this.state.players.length);
+        const totalActualWins = Object.values(data).reduce((sum, playerData) => sum + playerData.actual, 0);
+        if (totalActualWins !== maxTricks) {
+            return `Total tricks won (${totalActualWins}) must equal the number of tricks available (${maxTricks}) in round ${targetRound} with ${this.state.players.length} players.`;
         }
         return null; // Valid
     }
@@ -220,51 +238,29 @@ class GameViewModel {
         });
         return null; // Success
     }
-    updateLastRound(data) {
-        if (this.state.rounds.length === 0) {
-            return 'No rounds to update!';
-        }
-        const validationError = this.validateRoundData(data);
-        if (validationError) {
-            return validationError;
-        }
-        const lastRound = this.state.rounds[this.state.rounds.length - 1];
-        // Revert old scores
-        for (const oldPlayerData of lastRound.playerData) {
-            const player = this.state.players.find(p => p.name === oldPlayerData.playerName);
-            if (player) {
-                player.score -= oldPlayerData.roundScore;
-            }
-        }
-        // Apply new scores
-        lastRound.playerData = [];
-        for (const player of this.state.players) {
-            const playerRoundData = data[player.name];
-            const roundScore = this.calculateRoundScore(playerRoundData.bid, playerRoundData.actual, playerRoundData.bonus, lastRound.roundNumber);
-            lastRound.playerData.push({
-                playerName: player.name,
-                bid: playerRoundData.bid,
-                actual: playerRoundData.actual,
-                bonus: playerRoundData.bonus,
-                roundScore
-            });
-            player.score += roundScore;
-        }
-        this.saveState();
-        // Track analytics
-        this.trackEvent('round_updated', {
-            event_category: 'gameplay',
-            event_label: 'round_edited',
-            round_number: lastRound.roundNumber,
-            value: lastRound.roundNumber
-        });
-        return null; // Success
-    }
-    getLastRoundData() {
+    removeLastRound() {
         if (this.state.rounds.length === 0) {
             return null;
         }
-        const lastRound = this.state.rounds[this.state.rounds.length - 1];
+        const lastRound = this.state.rounds.pop();
+        // Revert scores from the removed round
+        for (const playerData of lastRound.playerData) {
+            const player = this.state.players.find(p => p.name === playerData.playerName);
+            if (player) {
+                player.score -= playerData.roundScore;
+            }
+        }
+        // Decrease current round number
+        this.state.currentRound = Math.max(1, this.state.currentRound - 1);
+        this.saveState();
+        // Track analytics
+        this.trackEvent('round_removed', {
+            event_category: 'gameplay',
+            event_label: 'round_deleted',
+            round_number: lastRound.roundNumber,
+            value: lastRound.roundNumber
+        });
+        // Return the round data for pre-filling inputs
         const result = {};
         for (const playerData of lastRound.playerData) {
             result[playerData.playerName] = {
@@ -886,12 +882,17 @@ class SkullKingGame {
         this.updatePlayerInputs();
     }
     handleUpdateLastRound() {
-        const lastRoundData = this.viewModel.getLastRoundData();
+        // Remove the last round and get its data for pre-filling
+        const lastRoundData = this.viewModel.removeLastRound();
         if (!lastRoundData) {
-            this.showError('No rounds to update!');
+            this.showError('No rounds to edit!');
             return;
         }
-        // Populate the inputs with last round data
+        // Ensure the round inputs are visible for editing, even if game was complete
+        this.showNewRoundInputs();
+        // Update UI to reflect the new game state (with last round removed)
+        this.updateUI();
+        // Populate the inputs with the removed round's data for editing
         for (const [playerName, data] of Object.entries(lastRoundData)) {
             const bidInput = document.getElementById(`bid-${playerName}`);
             const actualInput = document.getElementById(`actual-${playerName}`);
@@ -903,7 +904,6 @@ class SkullKingGame {
             if (bonusInput)
                 bonusInput.value = data.bonus.toString();
         }
-        this.showModal('Update Last Round', 'Modify the values above and click "Record Round" to update the last round.');
     }
     // Public method for testing the scoring logic
     testCalculateRoundScore(bid, actual, bonus, roundNumber) {
