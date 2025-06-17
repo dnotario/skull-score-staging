@@ -833,6 +833,9 @@ class GameViewModel {
     getPlayersSortedByScore() {
         return [...this.state.players].sort((a, b) => b.score - a.score);
     }
+    getPlayers() {
+        return [...this.state.players];
+    }
     // Commentary generation for a specific round
     generateRoundCommentary(roundData) {
         const perfectPlayers = roundData.playerData.filter(p => p.bid === p.actual);
@@ -1256,31 +1259,31 @@ class SkullKingGame {
         if (roundNumberEl) {
             roundNumberEl.textContent = roundDisplay;
         }
-        container.innerHTML = players.map(player => `
+        container.innerHTML = players.map((player, index) => `
             <div class="player-round-input">
                 <h4>${player.name}</h4>
                 <div class="round-input-row">
                     <div class="input-group">
-                        <label for="bid-${player.name}" class="input-label">${this.t('bid_label')}</label>
-                        <input type="number" id="bid-${player.name}" placeholder="0" min="0" max="${maxTricks}" oninput="game.updateRoundScore(&quot;${player.name}&quot;)">
+                        <label for="bid-player-${index}" class="input-label">${this.t('bid_label')}</label>
+                        <input type="number" id="bid-player-${index}" placeholder="0" min="0" max="${maxTricks}" oninput="game.updateRoundScoreByIndex(${index})">
                     </div>
                     <div class="input-group">
-                        <label for="actual-${player.name}" class="input-label">${this.t('won_label')}</label>
-                        <input type="number" id="actual-${player.name}" placeholder="0" min="0" max="${maxTricks}" oninput="game.updateRoundScore(&quot;${player.name}&quot;)">
+                        <label for="actual-player-${index}" class="input-label">${this.t('won_label')}</label>
+                        <input type="number" id="actual-player-${index}" placeholder="0" min="0" max="${maxTricks}" oninput="game.updateRoundScoreByIndex(${index})">
                     </div>
                     <div class="input-group">
-                        <label for="bonus-${player.name}" class="input-label">${this.t('bonus_label')}</label>
-                        <input type="number" id="bonus-${player.name}" placeholder="0" min="0" oninput="game.updateRoundScore(&quot;${player.name}&quot;)">
+                        <label for="bonus-player-${index}" class="input-label">${this.t('bonus_label')}</label>
+                        <input type="number" id="bonus-player-${index}" placeholder="0" min="0" oninput="game.updateRoundScoreByIndex(${index})">
                     </div>
                     <div class="input-group">
                         <label class="input-label">${this.t('score_label')}</label>
-                        <div id="score-${player.name}" class="computed-score">-</div>
+                        <div id="score-player-${index}" class="computed-score">-</div>
                     </div>
                 </div>
             </div>
         `).join('');
         // Initialize computed scores for all players
-        players.forEach(player => this.updateRoundScoreInternal(player.name));
+        players.forEach((player, index) => this.updateRoundScoreInternalByIndex(index));
     }
     updatePreviousRounds(rounds) {
         const container = document.getElementById('previous-rounds');
@@ -1320,12 +1323,12 @@ class SkullKingGame {
         `).join('');
     }
     collectRoundData(players) {
-        var _a, _b, _c;
         const data = {};
-        for (const player of players) {
-            const bidInput = document.getElementById(`bid-${player.name}`);
-            const actualInput = document.getElementById(`actual-${player.name}`);
-            const bonusInput = document.getElementById(`bonus-${player.name}`);
+        players.forEach((player, index) => {
+            var _a, _b, _c;
+            const bidInput = document.getElementById(`bid-player-${index}`);
+            const actualInput = document.getElementById(`actual-player-${index}`);
+            const bonusInput = document.getElementById(`bonus-player-${index}`);
             // Parse values, defaulting to 0 for empty inputs
             const bidValue = ((_a = bidInput === null || bidInput === void 0 ? void 0 : bidInput.value) === null || _a === void 0 ? void 0 : _a.trim()) || '0';
             const actualValue = ((_b = actualInput === null || actualInput === void 0 ? void 0 : actualInput.value) === null || _b === void 0 ? void 0 : _b.trim()) || '0';
@@ -1335,7 +1338,7 @@ class SkullKingGame {
                 actual: parseInt(actualValue),
                 bonus: parseInt(bonusValue)
             };
-        }
+        });
         return data;
     }
     clearRoundInputs() {
@@ -1616,6 +1619,45 @@ class SkullKingGame {
         scoreDisplay.textContent = score > 0 ? `+${score}` : score.toString();
         scoreDisplay.className = `computed-score ${score > 0 ? 'positive' : score < 0 ? 'negative' : 'zero'}`;
     }
+    updateRoundScoreInternalByIndex(playerIndex) {
+        var _a;
+        const bidInput = document.getElementById(`bid-player-${playerIndex}`);
+        const actualInput = document.getElementById(`actual-player-${playerIndex}`);
+        const bonusInput = document.getElementById(`bonus-player-${playerIndex}`);
+        const scoreDisplay = document.getElementById(`score-player-${playerIndex}`);
+        if (!bidInput || !actualInput || !bonusInput || !scoreDisplay)
+            return;
+        // Get input values
+        const bidValue = bidInput.value.trim();
+        const actualValue = actualInput.value.trim();
+        const bonusValue = bonusInput.value.trim();
+        // Only show score when both bid and actual have values (Option 1: Progressive Disclosure)
+        if (!bidValue || !actualValue) {
+            scoreDisplay.textContent = '-';
+            scoreDisplay.className = 'computed-score';
+            return;
+        }
+        // Parse values (bonus defaults to 0 if empty)
+        const bid = parseInt(bidValue);
+        const actual = parseInt(actualValue);
+        const bonus = bonusValue ? parseInt(bonusValue) : 0;
+        // Get player name for validation
+        const players = this.viewModel.getPlayers();
+        const playerName = ((_a = players[playerIndex]) === null || _a === void 0 ? void 0 : _a.name) || '';
+        // Use the centralized validation
+        const validationError = this.viewModel.validateSinglePlayerInput(bid, actual, bonus, playerName);
+        if (validationError) {
+            scoreDisplay.textContent = '-';
+            scoreDisplay.className = 'computed-score invalid';
+            return;
+        }
+        // Calculate score
+        const currentRound = this.viewModel.getCurrentRoundNumber();
+        const score = this.viewModel.testCalculateRoundScore(bid, actual, bonus, currentRound);
+        // Display score with appropriate styling
+        scoreDisplay.textContent = score > 0 ? `+${score}` : score.toString();
+        scoreDisplay.className = `computed-score ${score > 0 ? 'positive' : score < 0 ? 'negative' : 'zero'}`;
+    }
     // Public API for HTML event handlers
     updateTempPlayer(index, value) {
         this.viewModel.updateTempPlayer(index, value);
@@ -1626,6 +1668,12 @@ class SkullKingGame {
     }
     updateRoundScore(playerName) {
         this.updateRoundScoreInternal(playerName);
+    }
+    updateRoundScoreByIndex(playerIndex) {
+        const players = this.viewModel.getPlayers();
+        if (playerIndex >= 0 && playerIndex < players.length) {
+            this.updateRoundScoreInternalByIndex(playerIndex);
+        }
     }
     handleUpdateLastRound() {
         // Remove the last round and get its data for pre-filling
@@ -1639,10 +1687,15 @@ class SkullKingGame {
         // Update UI to reflect the new game state (with last round removed)
         this.updateUI();
         // Populate the inputs with the removed round's data for editing
+        const players = this.viewModel.getPlayers();
         for (const [playerName, data] of Object.entries(lastRoundData)) {
-            const bidInput = document.getElementById(`bid-${playerName}`);
-            const actualInput = document.getElementById(`actual-${playerName}`);
-            const bonusInput = document.getElementById(`bonus-${playerName}`);
+            // Find player index by name
+            const playerIndex = players.findIndex((p) => p.name === playerName);
+            if (playerIndex === -1)
+                continue;
+            const bidInput = document.getElementById(`bid-player-${playerIndex}`);
+            const actualInput = document.getElementById(`actual-player-${playerIndex}`);
+            const bonusInput = document.getElementById(`bonus-player-${playerIndex}`);
             if (bidInput)
                 bidInput.value = data.bid.toString();
             if (actualInput)
@@ -1650,7 +1703,7 @@ class SkullKingGame {
             if (bonusInput)
                 bonusInput.value = data.bonus.toString();
             // Update the computed score for this player
-            this.updateRoundScoreInternal(playerName);
+            this.updateRoundScoreInternalByIndex(playerIndex);
         }
         // Scroll to the round inputs section for editing
         const roundInputsSection = document.getElementById('new-round');
