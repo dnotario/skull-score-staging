@@ -631,9 +631,8 @@ class GameViewModel {
         return null; // Success
     }
     // Scoring Logic
-    calculateRoundScore(bid, actual, bonus, roundNumber) {
-        const scoringMode = this.getScoringMode();
-        const cardsDealt = this.getCardsPerRound(roundNumber, this.state.players.length);
+    calculateRoundScore(bid, actual, bonus, roundNumber, playerCount, scoringMode) {
+        const cardsDealt = this.getCardsPerRound(roundNumber, playerCount);
         if (scoringMode === 'rascal') {
             // Rascal's scoring: potential points = 10 × cards dealt
             const potentialPoints = 10 * cardsDealt;
@@ -660,8 +659,8 @@ class GameViewModel {
             else {
                 // Non-zero bid scoring
                 if (bid === actual) {
-                    // Correct prediction: 20 points per card dealt + bonus
-                    return 20 * cardsDealt + bonus;
+                    // Correct prediction: 20 points per trick taken + bonus
+                    return 20 * actual + bonus;
                 }
                 else {
                     // Incorrect prediction: -10 points per difference (no bonus)
@@ -789,7 +788,7 @@ class GameViewModel {
         // Process each player's data
         for (const player of this.state.players) {
             const playerRoundData = data[player.name];
-            const roundScore = this.calculateRoundScore(playerRoundData.bid, playerRoundData.actual, playerRoundData.bonus, this.state.currentRound);
+            const roundScore = this.calculateRoundScore(playerRoundData.bid, playerRoundData.actual, playerRoundData.bonus, this.state.currentRound, this.state.players.length, this.getScoringMode());
             roundData.playerData.push({
                 playerName: player.name,
                 bid: playerRoundData.bid,
@@ -1124,47 +1123,7 @@ class GameViewModel {
     }
     // Public method for testing
     testCalculateRoundScore(bid, actual, bonus, roundNumber, playerCount) {
-        // For testing, allow overriding player count
-        if (playerCount !== undefined) {
-            const cardsDealt = this.getCardsPerRound(roundNumber, playerCount);
-            const scoringMode = this.getScoringMode();
-            if (scoringMode === 'rascal') {
-                // Rascal's scoring: potential points = 10 × cards dealt
-                const potentialPoints = 10 * cardsDealt;
-                const difference = Math.abs(bid - actual);
-                if (difference === 0) {
-                    // Direct hit: full points + bonus
-                    return potentialPoints + bonus;
-                }
-                else if (difference === 1) {
-                    // Glancing blow: half points + half bonus
-                    return Math.floor(potentialPoints / 2) + Math.floor(bonus / 2);
-                }
-                else {
-                    // Complete miss: no points
-                    return 0;
-                }
-            }
-            else {
-                // Normal/Traditional Skull King scoring
-                if (bid === 0) {
-                    // Zero bid scoring: 10 points per card dealt for success
-                    return actual === 0 ? 10 * cardsDealt + bonus : -10 * cardsDealt;
-                }
-                else {
-                    // Non-zero bid scoring
-                    if (bid === actual) {
-                        // Correct prediction: 20 points per card dealt + bonus
-                        return 20 * cardsDealt + bonus;
-                    }
-                    else {
-                        // Incorrect prediction: -10 points per difference (no bonus)
-                        return -10 * Math.abs(bid - actual);
-                    }
-                }
-            }
-        }
-        return this.calculateRoundScore(bid, actual, bonus, roundNumber);
+        return this.calculateRoundScore(bid, actual, bonus, roundNumber, playerCount, this.getScoringMode());
     }
 }
 /**
@@ -1696,7 +1655,8 @@ class SkullKingGame {
         }
         // Calculate score
         const currentRound = this.viewModel.getCurrentRoundNumber();
-        const score = this.viewModel.testCalculateRoundScore(bid, actual, bonus, currentRound);
+        const playerCount = this.viewModel.getPlayerCount();
+        const score = this.viewModel.testCalculateRoundScore(bid, actual, bonus, currentRound, playerCount);
         // Display score with appropriate styling
         scoreDisplay.textContent = score > 0 ? `+${score}` : score.toString();
         scoreDisplay.className = `computed-score ${score > 0 ? 'positive' : score < 0 ? 'negative' : 'zero'}`;
@@ -1735,7 +1695,8 @@ class SkullKingGame {
         }
         // Calculate score
         const currentRound = this.viewModel.getCurrentRoundNumber();
-        const score = this.viewModel.testCalculateRoundScore(bid, actual, bonus, currentRound);
+        const playerCount = this.viewModel.getPlayerCount();
+        const score = this.viewModel.testCalculateRoundScore(bid, actual, bonus, currentRound, playerCount);
         // Display score with appropriate styling
         scoreDisplay.textContent = score > 0 ? `+${score}` : score.toString();
         scoreDisplay.className = `computed-score ${score > 0 ? 'positive' : score < 0 ? 'negative' : 'zero'}`;
