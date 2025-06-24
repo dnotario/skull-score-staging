@@ -1282,6 +1282,7 @@ class SkullKingGame {
         (_b = document.getElementById('player-names-section')) === null || _b === void 0 ? void 0 : _b.classList.add('hidden');
         (_c = document.getElementById('game-section')) === null || _c === void 0 ? void 0 : _c.classList.add('hidden');
         (_d = document.getElementById('new-game-section')) === null || _d === void 0 ? void 0 : _d.classList.add('hidden');
+        document.body.classList.remove('game-active');
     }
     showPlayerSetup() {
         var _a, _b, _c, _d;
@@ -1289,6 +1290,7 @@ class SkullKingGame {
         (_b = document.getElementById('player-names-section')) === null || _b === void 0 ? void 0 : _b.classList.remove('hidden');
         (_c = document.getElementById('game-section')) === null || _c === void 0 ? void 0 : _c.classList.add('hidden');
         (_d = document.getElementById('new-game-section')) === null || _d === void 0 ? void 0 : _d.classList.add('hidden');
+        document.body.classList.remove('game-active');
         // Ensure scoring mode translations are applied
         this.updateAllTranslations();
     }
@@ -1298,6 +1300,7 @@ class SkullKingGame {
         (_b = document.getElementById('player-names-section')) === null || _b === void 0 ? void 0 : _b.classList.add('hidden');
         (_c = document.getElementById('game-section')) === null || _c === void 0 ? void 0 : _c.classList.remove('hidden');
         (_d = document.getElementById('new-game-section')) === null || _d === void 0 ? void 0 : _d.classList.remove('hidden');
+        document.body.classList.add('game-active');
     }
     updatePlayerInputs() {
         const container = document.getElementById('player-names-inputs');
