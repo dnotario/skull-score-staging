@@ -160,6 +160,7 @@ const enTranslation = {
     bonus_clear_btn: "Clear",
     bonus_apply_btn: "Apply Bonus",
     bonus_error_bid_mismatch: "Arrr! Bonus only be allowed when yer bid equals actual tricks won!",
+    bonus_error_rascal_miss: "Shiver me timbers! No bonus when ye be off by 2 or more!",
     // Update prompts
     update_available_title: "Ahoy! New Treasure Available!",
     update_available_message: "A newer version of the score keeper be ready! Reload to get the latest features?",
@@ -323,6 +324,7 @@ const deTranslation = {
     bonus_clear_btn: "Löschen",
     bonus_apply_btn: "Bonus Anwenden",
     bonus_error_bid_mismatch: "Arrr! Bonus nur erlaubt, wenn Gebot gleich gewonnene Stiche!",
+    bonus_error_rascal_miss: "Donnerwetter! Kein Bonus bei 2 oder mehr daneben!",
     // Update prompts
     update_available_title: "Ahoi! Neue Version verfügbar!",
     update_available_message: "Eine neuere Version des Punktezählers ist bereit! Neu laden für die neuesten Funktionen?",
@@ -486,6 +488,7 @@ const esTranslation = {
     bonus_clear_btn: "Borrar",
     bonus_apply_btn: "Aplicar Bonus",
     bonus_error_bid_mismatch: "¡Arrr! ¡Bonus solo permitido cuando apuesta igual a bazas ganadas!",
+    bonus_error_rascal_miss: "¡Por mil rayos! ¡Sin bonus cuando fallas por 2 o más!",
     // Update prompts
     update_available_title: "¡Ahoy! ¡Nueva versión disponible!",
     update_available_message: "¡Una nueva versión del contador está lista! ¿Recargar para obtener las últimas funciones?",
@@ -659,6 +662,13 @@ class GameViewModel {
         else {
             this.tempPlayers[0] = '';
         }
+    }
+    reorderTempPlayers(fromIndex, toIndex) {
+        if (fromIndex === toIndex)
+            return;
+        const player = this.tempPlayers[fromIndex];
+        this.tempPlayers.splice(fromIndex, 1);
+        this.tempPlayers.splice(toIndex, 0, player);
     }
     setTempPlayers(players) {
         this.tempPlayers = [...players];
@@ -1204,6 +1214,12 @@ class GameViewModel {
 class SkullKingGame {
     constructor() {
         this.deferredPrompt = null;
+        // Drag and drop handlers
+        this.draggedPlayerIndex = null;
+        this.touchStartY = 0;
+        this.touchStartX = 0;
+        this.draggedElement = null;
+        this.dragGhost = null;
         // Bonus Calculator Modal Methods
         this.currentBonusPlayerIndex = -1;
         this.bonusCounters = {
@@ -1391,7 +1407,15 @@ class SkullKingGame {
             return;
         const tempPlayers = this.viewModel.getTempPlayers();
         container.innerHTML = tempPlayers.map((name, index) => `
-            <div class="player-name-input">
+            <div class="player-name-input" draggable="true" data-player-index="${index}" 
+                 ondragstart="game.handleDragStart(event, ${index})"
+                 ondragover="game.handleDragOver(event)"
+                 ondrop="game.handleDrop(event, ${index})"
+                 ondragend="game.handleDragEnd(event)"
+                 ontouchstart="game.handleTouchStart(event, ${index})"
+                 ontouchmove="game.handleTouchMove(event)"
+                 ontouchend="game.handleTouchEnd(event)">
+                <span class="drag-handle" aria-label="Drag to reorder">☰</span>
                 <input type="text" id="player-${index}" placeholder="${this.t('player_placeholder')}" value="${name}" onchange="game.updateTempPlayer(${index}, this.value)">
                 <button class="btn-remove" onclick="game.removePlayer(${index})" title="Remove player">✕</button>
             </div>
@@ -1811,6 +1835,157 @@ class SkullKingGame {
         this.viewModel.removeTempPlayer(index);
         this.updatePlayerInputs();
     }
+    handleDragStart(event, index) {
+        // Commit any edits to the input field first
+        const input = document.getElementById(`player-${index}`);
+        if (input && document.activeElement === input) {
+            input.blur(); // This will trigger the onchange event
+        }
+        this.draggedPlayerIndex = index;
+        const target = event.target;
+        target.classList.add('dragging');
+        if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/html', target.innerHTML);
+            // Create custom drag image
+            const dragImage = target.cloneNode(true);
+            dragImage.style.position = 'absolute';
+            dragImage.style.top = '-9999px';
+            dragImage.style.opacity = '0.9';
+            dragImage.style.transform = 'rotate(2deg)';
+            dragImage.classList.remove('dragging'); // Remove dragging class from the ghost
+            document.body.appendChild(dragImage);
+            // Set the drag image
+            event.dataTransfer.setDragImage(dragImage, event.offsetX, event.offsetY);
+            // Remove the drag image after a moment
+            setTimeout(() => dragImage.remove(), 0);
+        }
+    }
+    handleDragOver(event) {
+        if (event.preventDefault) {
+            event.preventDefault();
+        }
+        if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = 'move';
+        }
+        const target = event.target;
+        const playerInput = target.closest('.player-name-input');
+        if (playerInput && !playerInput.classList.contains('dragging')) {
+            playerInput.classList.add('drag-over');
+        }
+    }
+    handleDrop(event, dropIndex) {
+        if (event.stopPropagation) {
+            event.stopPropagation();
+        }
+        if (event.preventDefault) {
+            event.preventDefault();
+        }
+        const target = event.target;
+        const playerInput = target.closest('.player-name-input');
+        if (playerInput) {
+            playerInput.classList.remove('drag-over');
+        }
+        if (this.draggedPlayerIndex !== null && this.draggedPlayerIndex !== dropIndex) {
+            this.viewModel.reorderTempPlayers(this.draggedPlayerIndex, dropIndex);
+            this.updatePlayerInputs();
+        }
+    }
+    handleDragEnd(event) {
+        const target = event.target;
+        target.classList.remove('dragging');
+        // Remove all drag-over classes
+        const allInputs = document.querySelectorAll('.player-name-input');
+        allInputs.forEach(input => input.classList.remove('drag-over'));
+        this.draggedPlayerIndex = null;
+    }
+    // Touch handlers for mobile support
+    handleTouchStart(event, index) {
+        // Commit any edits to the input field first
+        const input = document.getElementById(`player-${index}`);
+        if (input && document.activeElement === input) {
+            input.blur(); // This will trigger the onchange event
+        }
+        this.draggedPlayerIndex = index;
+        const touch = event.touches[0];
+        this.touchStartY = touch.clientY;
+        this.touchStartX = touch.clientX;
+        const target = event.target;
+        const playerInput = target.closest('.player-name-input');
+        if (playerInput) {
+            this.draggedElement = playerInput;
+            playerInput.classList.add('dragging');
+            // Create ghost element
+            this.dragGhost = playerInput.cloneNode(true);
+            this.dragGhost.classList.add('drag-ghost');
+            this.dragGhost.classList.remove('dragging'); // Remove dragging class from the ghost
+            this.dragGhost.style.position = 'fixed';
+            this.dragGhost.style.pointerEvents = 'none';
+            this.dragGhost.style.zIndex = '1000';
+            this.dragGhost.style.width = playerInput.offsetWidth + 'px';
+            // Position ghost at touch point
+            const rect = playerInput.getBoundingClientRect();
+            this.dragGhost.style.left = rect.left + 'px';
+            this.dragGhost.style.top = rect.top + 'px';
+            document.body.appendChild(this.dragGhost);
+        }
+    }
+    handleTouchMove(event) {
+        if (!this.draggedElement || this.draggedPlayerIndex === null)
+            return;
+        event.preventDefault();
+        const touch = event.touches[0];
+        // Move ghost element with touch
+        if (this.dragGhost) {
+            const deltaX = touch.clientX - this.touchStartX;
+            const deltaY = touch.clientY - this.touchStartY;
+            const rect = this.draggedElement.getBoundingClientRect();
+            this.dragGhost.style.left = (rect.left + deltaX) + 'px';
+            this.dragGhost.style.top = (rect.top + deltaY) + 'px';
+        }
+        // Find the element under the touch point (excluding the ghost)
+        if (this.dragGhost) {
+            this.dragGhost.style.display = 'none';
+        }
+        const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (this.dragGhost) {
+            this.dragGhost.style.display = '';
+        }
+        const dropTarget = elementBelow === null || elementBelow === void 0 ? void 0 : elementBelow.closest('.player-name-input');
+        // Remove previous drag-over classes
+        document.querySelectorAll('.player-name-input').forEach(el => el.classList.remove('drag-over'));
+        // Add drag-over class to current target
+        if (dropTarget && dropTarget !== this.draggedElement) {
+            dropTarget.classList.add('drag-over');
+        }
+    }
+    handleTouchEnd(event) {
+        if (!this.draggedElement || this.draggedPlayerIndex === null)
+            return;
+        const touch = event.changedTouches[0];
+        // Temporarily hide ghost to find element below
+        if (this.dragGhost) {
+            this.dragGhost.style.display = 'none';
+        }
+        const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+        const dropTarget = elementBelow === null || elementBelow === void 0 ? void 0 : elementBelow.closest('.player-name-input');
+        if (dropTarget && dropTarget !== this.draggedElement) {
+            const dropIndex = parseInt(dropTarget.getAttribute('data-player-index') || '0');
+            if (!isNaN(dropIndex) && this.draggedPlayerIndex !== dropIndex) {
+                this.viewModel.reorderTempPlayers(this.draggedPlayerIndex, dropIndex);
+                this.updatePlayerInputs();
+            }
+        }
+        // Clean up
+        if (this.dragGhost) {
+            this.dragGhost.remove();
+            this.dragGhost = null;
+        }
+        this.draggedElement.classList.remove('dragging');
+        document.querySelectorAll('.player-name-input').forEach(el => el.classList.remove('drag-over'));
+        this.draggedElement = null;
+        this.draggedPlayerIndex = null;
+    }
     updateRoundScore(playerName) {
         this.updateRoundScoreInternal(playerName);
     }
@@ -2136,9 +2311,14 @@ class SkullKingGame {
         // Check bonus eligibility based on scoring mode
         const scoringMode = this.viewModel.getScoringMode();
         const difference = Math.abs(bid - actual);
-        // Bonus is only allowed when bid equals actual in BOTH modes
-        if (bid !== actual) {
+        // In Traditional mode, bonus is only allowed when bid equals actual
+        // In Rascal mode, bonus is allowed when off by 0 or 1 (Direct Hit or Glancing Blow)
+        if (scoringMode === 'normal' && bid !== actual) {
             this.showModal(this.t('error_title'), this.t('bonus_error_bid_mismatch', { fallback: 'Bonus only allowed when bid equals actual!' }));
+            return;
+        }
+        else if (scoringMode === 'rascal' && difference > 1) {
+            this.showModal(this.t('error_title'), this.t('bonus_error_rascal_miss', { fallback: 'No bonus when off by 2 or more!' }));
             return;
         }
         // Restore previous values if they exist, otherwise reset
