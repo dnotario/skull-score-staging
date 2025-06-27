@@ -1,5 +1,7 @@
 // Service Worker for Skull King Score Keeper
-const CACHE_NAME = 'skull-king-v1';
+// Build timestamp: 2025-06-27T08-25-39-202Z
+const CACHE_VERSION = '2025-06-27T08-25-39-202Z';
+const CACHE_NAME = `skull-king-v${CACHE_VERSION}`;
 const urlsToCache = [
   './',
   './index.html',
@@ -14,6 +16,9 @@ const urlsToCache = [
 
 // Install event - cache resources
 self.addEventListener('install', event => {
+  // Skip waiting to activate immediately
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
@@ -23,41 +28,63 @@ self.addEventListener('install', event => {
   );
 });
 
-// Fetch event - serve from cache when offline
+// Fetch event - network first, fallback to cache
 self.addEventListener('fetch', event => {
+  // Skip cache for navigation requests when online to ensure updates
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          // Update the cache with the fresh response
+          if (response && response.status === 200 && response.type === 'basic') {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Offline - return cached index.html
+          return caches.match('./index.html');
+        })
+    );
+    return;
+  }
+  
+  // For non-navigation requests, use network-first strategy
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then(response => {
-        // Cache hit - return response
-        if (response) {
+        // Check if valid response
+        if (!response || response.status !== 200 || response.type !== 'basic') {
           return response;
         }
         
-        // Clone the request
-        const fetchRequest = event.request.clone();
+        // Clone the response
+        const responseToCache = response.clone();
         
-        return fetch(fetchRequest).then(response => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          
-          // Clone the response
-          const responseToCache = response.clone();
-          
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              cache.put(event.request, responseToCache);
-            });
-          
-          return response;
-        });
+        // Update cache with fresh content
+        caches.open(CACHE_NAME)
+          .then(cache => {
+            cache.put(event.request, responseToCache);
+          });
+        
+        return response;
+      })
+      .catch(() => {
+        // Network failed, try cache
+        return caches.match(event.request);
       })
   );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
+  // Take control of all pages immediately
+  event.waitUntil(clients.claim());
+  
   const cacheWhitelist = [CACHE_NAME];
   
   event.waitUntil(
@@ -65,6 +92,7 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })

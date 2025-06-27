@@ -144,7 +144,27 @@ const enTranslation = {
     scoring_mode_normal: "Normal Scoring",
     scoring_mode_normal_desc: "Traditional Skull King: Zero bid = 10×round, correct bid = 20×tricks + bonus",
     scoring_mode_rascal: "Rascal's Scoring",
-    scoring_mode_rascal_desc: "Even-keeled scoring: 10 pts × cards dealt. Direct hit = full, off by 1 = half, off by 2+ = none"
+    scoring_mode_rascal_desc: "Even-keeled scoring: 10 pts × cards dealt. Direct hit = full, off by 1 = half, off by 2+ = none",
+    // Bonus calculator
+    calc_button: "Calc",
+    calculate_button: "Calculate",
+    bonus_calculator_title: "Bonus Calculator",
+    bonus_category_14s: "Number 14 Cards Captured",
+    bonus_category_captures: "Character Captures",
+    bonus_label_standard_14: "Yellow/Purple/Green 14s",
+    bonus_label_black_14: "Black (Jolly Roger) 14",
+    bonus_label_mermaid_pirate: "Mermaids captured by Pirates",
+    bonus_label_sk_pirate: "Pirates captured by Skull King",
+    bonus_label_mermaid_sk: "Skull King captured by Mermaid",
+    bonus_total_label: "Total Bonus:",
+    bonus_clear_btn: "Clear",
+    bonus_apply_btn: "Apply Bonus",
+    bonus_error_bid_mismatch: "Arrr! Bonus only be allowed when yer bid equals actual tricks won!",
+    // Update prompts
+    update_available_title: "Ahoy! New Treasure Available!",
+    update_available_message: "A newer version of the score keeper be ready! Reload to get the latest features?",
+    // Error title
+    error_title: "Avast!"
 };
 // German translations
 const deTranslation = {
@@ -287,7 +307,27 @@ const deTranslation = {
     scoring_mode_normal: "Normale Wertung",
     scoring_mode_normal_desc: "Traditionelle Skull King: Null-Gebot = 10×Runde, korrektes Gebot = 20×Stiche + Bonus",
     scoring_mode_rascal: "Schurken-Wertung",
-    scoring_mode_rascal_desc: "Ausgeglichene Wertung: 10 Pkt × ausgeteilte Karten. Direkttreffer = voll, um 1 daneben = halb, um 2+ daneben = null"
+    scoring_mode_rascal_desc: "Ausgeglichene Wertung: 10 Pkt × ausgeteilte Karten. Direkttreffer = voll, um 1 daneben = halb, um 2+ daneben = null",
+    // Bonus calculator
+    calc_button: "Rechner",
+    calculate_button: "Berechnen",
+    bonus_calculator_title: "Bonus-Rechner",
+    bonus_category_14s: "Eroberte Nummer 14 Karten",
+    bonus_category_captures: "Charakterfänge",
+    bonus_label_standard_14: "Gelbe/Lila/Grüne 14er",
+    bonus_label_black_14: "Schwarze (Jolly Roger) 14",
+    bonus_label_mermaid_pirate: "Meerjungfrauen von Piraten gefangen",
+    bonus_label_sk_pirate: "Piraten vom Skull King gefangen",
+    bonus_label_mermaid_sk: "Skull King von Meerjungfrau gefangen",
+    bonus_total_label: "Gesamt-Bonus:",
+    bonus_clear_btn: "Löschen",
+    bonus_apply_btn: "Bonus Anwenden",
+    bonus_error_bid_mismatch: "Arrr! Bonus nur erlaubt, wenn Gebot gleich gewonnene Stiche!",
+    // Update prompts
+    update_available_title: "Ahoi! Neue Version verfügbar!",
+    update_available_message: "Eine neuere Version des Punktezählers ist bereit! Neu laden für die neuesten Funktionen?",
+    // Error title
+    error_title: "Achtung!"
 };
 // Spanish translations
 const esTranslation = {
@@ -430,7 +470,27 @@ const esTranslation = {
     scoring_mode_normal: "Puntuación Normal",
     scoring_mode_normal_desc: "Skull King tradicional: Apuesta cero = 10×ronda, apuesta correcta = 20×bazas + bonus",
     scoring_mode_rascal: "Puntuación Pícaro",
-    scoring_mode_rascal_desc: "Puntuación equilibrada: 10 pts × cartas repartidas. Acierto = completo, fallo por 1 = mitad, fallo por 2+ = cero"
+    scoring_mode_rascal_desc: "Puntuación equilibrada: 10 pts × cartas repartidas. Acierto = completo, fallo por 1 = mitad, fallo por 2+ = cero",
+    // Bonus calculator
+    calc_button: "Calc",
+    calculate_button: "Calcular",
+    bonus_calculator_title: "Calculadora de Bonus",
+    bonus_category_14s: "Cartas Número 14 Capturadas",
+    bonus_category_captures: "Capturas de Personajes",
+    bonus_label_standard_14: "14s Amarillo/Morado/Verde",
+    bonus_label_black_14: "14 Negro (Jolly Roger)",
+    bonus_label_mermaid_pirate: "Sirenas capturadas por Piratas",
+    bonus_label_sk_pirate: "Piratas capturados por Rey Calavera",
+    bonus_label_mermaid_sk: "Rey Calavera capturado por Sirena",
+    bonus_total_label: "Bonus Total:",
+    bonus_clear_btn: "Borrar",
+    bonus_apply_btn: "Aplicar Bonus",
+    bonus_error_bid_mismatch: "¡Arrr! ¡Bonus solo permitido cuando apuesta igual a bazas ganadas!",
+    // Update prompts
+    update_available_title: "¡Ahoy! ¡Nueva versión disponible!",
+    update_available_message: "¡Una nueva versión del contador está lista! ¿Recargar para obtener las últimas funciones?",
+    // Error title
+    error_title: "¡Alto!"
 };
 // Export translations object for easy access
 const translations = {
@@ -704,20 +764,31 @@ class GameViewModel {
                 actual: actual.toString()
             });
         }
-        // Bonus point validation - only applies when correctly predicting tricks
-        if (bid !== actual && bonus > 0) {
-            return this.t('bonus_without_correct_bid_error', {
-                playerName,
-                bid: bid.toString(),
-                actual: actual.toString()
-            });
-        }
-        // Reasonable bonus limits
-        if (Math.abs(bonus) > 100) {
-            return this.t('unreasonable_bonus_error', {
-                playerName,
-                bonus: bonus.toString()
-            });
+        // Bonus point validation
+        if (bonus > 0) {
+            const scoringMode = this.state.scoringMode || 'normal';
+            if (scoringMode === 'normal') {
+                // Traditional scoring: "Only awarded if you make your exact bid!"
+                if (bid !== actual) {
+                    return this.t('bonus_without_correct_bid_error', {
+                        playerName,
+                        bid: bid.toString(),
+                        actual: actual.toString()
+                    });
+                }
+            }
+            else if (scoringMode === 'rascal') {
+                // Rascal scoring: Bonuses allowed for direct hit or glancing blow (off by 1)
+                // Full bonus for exact bid, half bonus for off by 1, no bonus for off by 2+
+                const difference = Math.abs(bid - actual);
+                if (difference > 1) {
+                    return this.t('bonus_without_correct_bid_error', {
+                        playerName,
+                        bid: bid.toString(),
+                        actual: actual.toString()
+                    });
+                }
+            }
         }
         return null; // Valid
     }
@@ -1133,6 +1204,16 @@ class GameViewModel {
 class SkullKingGame {
     constructor() {
         this.deferredPrompt = null;
+        // Bonus Calculator Modal Methods
+        this.currentBonusPlayerIndex = -1;
+        this.bonusCounters = {
+            standard14: 0,
+            black14: 0,
+            mermaidPirate: 0,
+            skullPirate: 0,
+            mermaidSkull: 0
+        };
+        this.playerBonusData = {};
         this.viewModel = new GameViewModel();
         this.init();
     }
@@ -1141,6 +1222,7 @@ class SkullKingGame {
         this.initializePWA();
         this.initializeTranslations();
         this.updateUI();
+        this.registerServiceWorkerUpdateHandler();
     }
     setupEventListeners() {
         // Landing page
@@ -1363,7 +1445,11 @@ class SkullKingGame {
                     </div>
                     <div class="input-group">
                         <label for="bonus-player-${index}" class="input-label">${this.t('bonus_label')}</label>
-                        <input type="number" id="bonus-player-${index}" placeholder="0" min="0" oninput="game.updateRoundScoreByIndex(${index})">
+                        <button class="bonus-button" id="bonus-player-${index}" onclick="game.openBonusModal(${index})" aria-label="Calculate bonus">
+                            <span class="bonus-icon">🧮</span>
+                            <span class="bonus-text">${this.t('calculate_button', { fallback: 'Calculate' })}</span>
+                            <span class="bonus-value no-bonus" id="bonus-value-${index}">0</span>
+                        </button>
                     </div>
                     <div class="input-group">
                         <label class="input-label">${this.t('score_label')}</label>
@@ -1415,14 +1501,14 @@ class SkullKingGame {
     collectRoundData(players) {
         const data = {};
         players.forEach((player, index) => {
-            var _a, _b, _c;
+            var _a, _b;
             const bidInput = document.getElementById(`bid-player-${index}`);
             const actualInput = document.getElementById(`actual-player-${index}`);
-            const bonusInput = document.getElementById(`bonus-player-${index}`);
+            const bonusButton = document.getElementById(`bonus-player-${index}`);
             // Parse values, defaulting to 0 for empty inputs
             const bidValue = ((_a = bidInput === null || bidInput === void 0 ? void 0 : bidInput.value) === null || _a === void 0 ? void 0 : _a.trim()) || '0';
             const actualValue = ((_b = actualInput === null || actualInput === void 0 ? void 0 : actualInput.value) === null || _b === void 0 ? void 0 : _b.trim()) || '0';
-            const bonusValue = ((_c = bonusInput === null || bonusInput === void 0 ? void 0 : bonusInput.value) === null || _c === void 0 ? void 0 : _c.trim()) || '0';
+            const bonusValue = (bonusButton === null || bonusButton === void 0 ? void 0 : bonusButton.getAttribute('data-bonus-value')) || '0';
             data[player.name] = {
                 bid: parseInt(bidValue),
                 actual: parseInt(actualValue),
@@ -1434,6 +1520,19 @@ class SkullKingGame {
     clearRoundInputs() {
         const inputs = document.querySelectorAll('#round-inputs input');
         inputs.forEach(input => input.value = '');
+        // Reset bonus buttons
+        const players = this.viewModel.getPlayers();
+        players.forEach((_, index) => {
+            const bonusButton = document.getElementById(`bonus-player-${index}`);
+            const bonusValueEl = document.getElementById(`bonus-value-${index}`);
+            if (bonusButton && bonusValueEl) {
+                bonusButton.setAttribute('data-bonus-value', '0');
+                bonusValueEl.textContent = '0';
+                bonusValueEl.classList.add('no-bonus');
+            }
+        });
+        // Clear stored bonus data for the round
+        this.playerBonusData = {};
     }
     showCommentary() {
         const commentary = this.viewModel.getCurrentCommentary();
@@ -1668,14 +1767,14 @@ class SkullKingGame {
         var _a;
         const bidInput = document.getElementById(`bid-player-${playerIndex}`);
         const actualInput = document.getElementById(`actual-player-${playerIndex}`);
-        const bonusInput = document.getElementById(`bonus-player-${playerIndex}`);
+        const bonusButton = document.getElementById(`bonus-player-${playerIndex}`);
         const scoreDisplay = document.getElementById(`score-player-${playerIndex}`);
-        if (!bidInput || !actualInput || !bonusInput || !scoreDisplay)
+        if (!bidInput || !actualInput || !scoreDisplay)
             return;
         // Get input values
         const bidValue = bidInput.value.trim();
         const actualValue = actualInput.value.trim();
-        const bonusValue = bonusInput.value.trim();
+        const bonusValue = (bonusButton === null || bonusButton === void 0 ? void 0 : bonusButton.getAttribute('data-bonus-value')) || '0';
         // Only show score when both bid and actual have values (Option 1: Progressive Disclosure)
         if (!bidValue || !actualValue) {
             scoreDisplay.textContent = '-';
@@ -1685,7 +1784,7 @@ class SkullKingGame {
         // Parse values (bonus defaults to 0 if empty)
         const bid = parseInt(bidValue);
         const actual = parseInt(actualValue);
-        const bonus = bonusValue ? parseInt(bonusValue) : 0;
+        const bonus = parseInt(bonusValue);
         // Get player name for validation
         const players = this.viewModel.getPlayers();
         const playerName = ((_a = players[playerIndex]) === null || _a === void 0 ? void 0 : _a.name) || '';
@@ -1741,13 +1840,23 @@ class SkullKingGame {
                 continue;
             const bidInput = document.getElementById(`bid-player-${playerIndex}`);
             const actualInput = document.getElementById(`actual-player-${playerIndex}`);
-            const bonusInput = document.getElementById(`bonus-player-${playerIndex}`);
+            const bonusButton = document.getElementById(`bonus-player-${playerIndex}`);
+            const bonusValueEl = document.getElementById(`bonus-value-${playerIndex}`);
             if (bidInput)
                 bidInput.value = data.bid.toString();
             if (actualInput)
                 actualInput.value = data.actual.toString();
-            if (bonusInput)
-                bonusInput.value = data.bonus.toString();
+            if (bonusButton && bonusValueEl) {
+                bonusButton.setAttribute('data-bonus-value', data.bonus.toString());
+                bonusValueEl.textContent = data.bonus.toString();
+                // Update styling based on whether bonus is applied
+                if (data.bonus > 0) {
+                    bonusValueEl.classList.remove('no-bonus');
+                }
+                else {
+                    bonusValueEl.classList.add('no-bonus');
+                }
+            }
             // Update the computed score for this player
             this.updateRoundScoreInternalByIndex(playerIndex);
         }
@@ -2015,6 +2124,207 @@ class SkullKingGame {
         }
         modal.style.display = 'flex';
     }
+    openBonusModal(playerIndex) {
+        this.currentBonusPlayerIndex = playerIndex;
+        // Check if bid equals actual for this player
+        const bidInput = document.getElementById(`bid-player-${playerIndex}`);
+        const actualInput = document.getElementById(`actual-player-${playerIndex}`);
+        if (!bidInput || !actualInput)
+            return;
+        const bid = parseInt(bidInput.value) || 0;
+        const actual = parseInt(actualInput.value) || 0;
+        // Check bonus eligibility based on scoring mode
+        const scoringMode = this.viewModel.getScoringMode();
+        const difference = Math.abs(bid - actual);
+        // Bonus is only allowed when bid equals actual in BOTH modes
+        if (bid !== actual) {
+            this.showModal(this.t('error_title'), this.t('bonus_error_bid_mismatch', { fallback: 'Bonus only allowed when bid equals actual!' }));
+            return;
+        }
+        // Restore previous values if they exist, otherwise reset
+        if (this.playerBonusData[playerIndex]) {
+            this.bonusCounters = Object.assign({}, this.playerBonusData[playerIndex]);
+        }
+        else {
+            // Reset counters
+            this.bonusCounters = {
+                standard14: 0,
+                black14: 0,
+                mermaidPirate: 0,
+                skullPirate: 0,
+                mermaidSkull: 0
+            };
+        }
+        // Update UI with restored or reset values
+        this.updateBonusCountersUI();
+        // Show modal
+        const modal = document.getElementById('bonus-modal-overlay');
+        if (modal) {
+            modal.classList.add('active');
+        }
+    }
+    updateBonusCountersUI() {
+        // Update all counter displays
+        Object.keys(this.bonusCounters).forEach(key => {
+            const counterEl = document.getElementById(`counter-${key}`);
+            if (counterEl) {
+                counterEl.textContent = this.bonusCounters[key].toString();
+            }
+            // Update points display
+            const count = this.bonusCounters[key];
+            const pointsEl = document.getElementById(`points-${key}`);
+            if (pointsEl) {
+                const points = this.calculateBonusPoints(key, count);
+                pointsEl.textContent = points.toString();
+            }
+        });
+        // Update button states
+        this.updateBonusButtonStates();
+        // Update total
+        this.updateBonusTotal();
+    }
+    calculateBonusPoints(type, count) {
+        const pointsMap = {
+            standard14: 10,
+            black14: 20,
+            mermaidPirate: 20,
+            skullPirate: 30,
+            mermaidSkull: 40
+        };
+        return count * pointsMap[type];
+    }
+    closeBonusModal() {
+        const modal = document.getElementById('bonus-modal-overlay');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+        // Don't clear counters on close - keep them for persistence
+    }
+    updateBonusCounter(type, delta) {
+        // Define maximum limits for each bonus type
+        const maxLimits = {
+            standard14: 3, // Yellow/Purple/Green 14s
+            black14: 1, // Jolly Roger 14
+            mermaidPirate: 6, // Pirates captured by Mermaid
+            skullPirate: 6, // Pirates captured by Skull King
+            mermaidSkull: 1 // Skull King captured by Mermaid
+        };
+        // Update counter value with min/max constraints
+        const newValue = this.bonusCounters[type] + delta;
+        this.bonusCounters[type] = Math.max(0, Math.min(maxLimits[type], newValue));
+        // Update UI
+        const counterEl = document.getElementById(`counter-${type}`);
+        if (counterEl) {
+            counterEl.textContent = this.bonusCounters[type].toString();
+        }
+        // Update points display
+        const pointsEl = document.getElementById(`points-${type}`);
+        if (pointsEl) {
+            const multipliers = {
+                standard14: 10,
+                black14: 20,
+                mermaidPirate: 20,
+                skullPirate: 30,
+                mermaidSkull: 40
+            };
+            pointsEl.textContent = (this.bonusCounters[type] * multipliers[type]).toString();
+        }
+        // Update button states
+        this.updateBonusButtonStates();
+        // Update total
+        this.updateBonusTotal();
+    }
+    updateBonusButtonStates() {
+        const maxLimits = {
+            standard14: 3,
+            black14: 1,
+            mermaidPirate: 6,
+            skullPirate: 6,
+            mermaidSkull: 1
+        };
+        // Update button states for each bonus type
+        Object.keys(this.bonusCounters).forEach(key => {
+            const type = key;
+            const count = this.bonusCounters[type];
+            const max = maxLimits[type];
+            // Get increment and decrement buttons
+            const incrementBtn = document.querySelector(`button[onclick="game.updateBonusCounter('${type}', 1)"]`);
+            const decrementBtn = document.querySelector(`button[onclick="game.updateBonusCounter('${type}', -1)"]`);
+            // Disable/enable buttons based on limits
+            if (incrementBtn) {
+                incrementBtn.disabled = count >= max;
+            }
+            if (decrementBtn) {
+                decrementBtn.disabled = count <= 0;
+            }
+        });
+    }
+    updateBonusTotal() {
+        const total = this.bonusCounters.standard14 * 10 +
+            this.bonusCounters.black14 * 20 +
+            this.bonusCounters.mermaidPirate * 20 +
+            this.bonusCounters.skullPirate * 30 +
+            this.bonusCounters.mermaidSkull * 40;
+        const totalEl = document.getElementById('bonus-total-value');
+        if (totalEl) {
+            totalEl.textContent = total.toString();
+        }
+    }
+    clearBonusCalculator() {
+        this.clearBonusCounters();
+        this.updateBonusButtonStates();
+        this.updateBonusTotal();
+    }
+    clearBonusCounters() {
+        // Reset all counters
+        for (const key in this.bonusCounters) {
+            this.bonusCounters[key] = 0;
+            const counterEl = document.getElementById(`counter-${key}`);
+            if (counterEl) {
+                counterEl.textContent = '0';
+            }
+            const pointsEl = document.getElementById(`points-${key}`);
+            if (pointsEl) {
+                pointsEl.textContent = '0';
+            }
+        }
+    }
+    applyBonusCalculator() {
+        if (this.currentBonusPlayerIndex === -1)
+            return;
+        // Calculate total bonus
+        const total = this.bonusCounters.standard14 * 10 +
+            this.bonusCounters.black14 * 20 +
+            this.bonusCounters.mermaidPirate * 20 +
+            this.bonusCounters.skullPirate * 30 +
+            this.bonusCounters.mermaidSkull * 40;
+        // Update the bonus value display
+        const bonusValueEl = document.getElementById(`bonus-value-${this.currentBonusPlayerIndex}`);
+        if (bonusValueEl) {
+            bonusValueEl.textContent = total.toString();
+            // Remove gray styling if bonus is applied, add it back if bonus is 0
+            if (total > 0) {
+                bonusValueEl.classList.remove('no-bonus');
+            }
+            else {
+                bonusValueEl.classList.add('no-bonus');
+            }
+        }
+        // Store the bonus value in a data attribute for persistence
+        const bonusButton = document.getElementById(`bonus-player-${this.currentBonusPlayerIndex}`);
+        if (bonusButton) {
+            bonusButton.setAttribute('data-bonus-value', total.toString());
+        }
+        // Store the counters for this player to restore when reopening
+        if (!this.playerBonusData) {
+            this.playerBonusData = {};
+        }
+        this.playerBonusData[this.currentBonusPlayerIndex] = Object.assign({}, this.bonusCounters);
+        // Trigger the update with the new bonus value
+        this.updateRoundScoreByIndex(this.currentBonusPlayerIndex);
+        // Close modal
+        this.closeBonusModal();
+    }
     // Public method for testing the scoring logic
     testCalculateRoundScore(bid, actual, bonus, roundNumber, playerCount) {
         return this.viewModel.testCalculateRoundScore(bid, actual, bonus, roundNumber, playerCount);
@@ -2026,6 +2336,60 @@ class SkullKingGame {
     // Public method for testing scoring modes
     getViewModel() {
         return this.viewModel;
+    }
+    // Service Worker Update Handler
+    registerServiceWorkerUpdateHandler() {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            // Check for updates every time the app gains focus
+            window.addEventListener('focus', () => {
+                navigator.serviceWorker.getRegistration().then(registration => {
+                    if (registration) {
+                        registration.update();
+                    }
+                });
+            });
+            // Listen for new service worker taking control
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                // New service worker has taken control, show update prompt
+                this.showUpdatePrompt();
+            });
+            // Also check on visibility change (for mobile)
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    navigator.serviceWorker.getRegistration().then(registration => {
+                        if (registration) {
+                            registration.update();
+                        }
+                    });
+                }
+            });
+        }
+    }
+    showUpdatePrompt() {
+        // Store the original confirm button handler
+        const confirmBtn = document.getElementById('modal-confirm');
+        const originalHandler = confirmBtn === null || confirmBtn === void 0 ? void 0 : confirmBtn.onclick;
+        // Set up reload on confirm
+        if (confirmBtn) {
+            confirmBtn.onclick = () => {
+                const modal = document.getElementById('modal');
+                if (modal)
+                    modal.classList.add('hidden');
+                window.location.reload();
+            };
+        }
+        this.showModal(this.t('update_available_title', { fallback: 'Update Available!' }), this.t('update_available_message', { fallback: 'A new version is available. Reload to update?' }));
+        // Restore original handler when modal is closed
+        const cancelBtn = document.getElementById('modal-cancel');
+        if (cancelBtn) {
+            const originalCancelHandler = cancelBtn.onclick;
+            cancelBtn.onclick = () => {
+                if (originalCancelHandler)
+                    originalCancelHandler.call(cancelBtn, new MouseEvent('click'));
+                if (confirmBtn && originalHandler)
+                    confirmBtn.onclick = originalHandler;
+            };
+        }
     }
 }
 // Initialize game
