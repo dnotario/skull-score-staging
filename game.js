@@ -666,9 +666,15 @@ class GameViewModel {
     reorderTempPlayers(fromIndex, toIndex) {
         if (fromIndex === toIndex)
             return;
-        const player = this.tempPlayers[fromIndex];
-        this.tempPlayers.splice(fromIndex, 1);
-        this.tempPlayers.splice(toIndex, 0, player);
+        const players = [...this.tempPlayers];
+        const [removed] = players.splice(fromIndex, 1);
+        // Adjust target index after removal
+        let adjustedIndex = toIndex;
+        if (fromIndex < toIndex) {
+            adjustedIndex = toIndex - 1;
+        }
+        players.splice(adjustedIndex, 0, removed);
+        this.tempPlayers = players;
     }
     setTempPlayers(players) {
         this.tempPlayers = [...players];
@@ -1407,15 +1413,7 @@ class SkullKingGame {
             return;
         const tempPlayers = this.viewModel.getTempPlayers();
         container.innerHTML = tempPlayers.map((name, index) => `
-            <div class="player-name-input" draggable="true" data-player-index="${index}" 
-                 ondragstart="game.handleDragStart(event, ${index})"
-                 ondragover="game.handleDragOver(event)"
-                 ondrop="game.handleDrop(event, ${index})"
-                 ondragend="game.handleDragEnd(event)"
-                 ontouchstart="game.handleTouchStart(event, ${index})"
-                 ontouchmove="game.handleTouchMove(event)"
-                 ontouchend="game.handleTouchEnd(event)">
-                <span class="drag-handle" aria-label="Drag to reorder">☰</span>
+            <div class="player-name-input">
                 <input type="text" id="player-${index}" placeholder="${this.t('player_placeholder')}" value="${name}" onchange="game.updateTempPlayer(${index}, this.value)">
                 <button class="btn-remove" onclick="game.removePlayer(${index})" title="Remove player">✕</button>
             </div>
@@ -1870,6 +1868,8 @@ class SkullKingGame {
         }
         const target = event.target;
         const playerInput = target.closest('.player-name-input');
+        // Remove previous drag-over classes
+        document.querySelectorAll('.player-name-input').forEach(el => el.classList.remove('drag-over'));
         if (playerInput && !playerInput.classList.contains('dragging')) {
             playerInput.classList.add('drag-over');
         }
@@ -1887,7 +1887,14 @@ class SkullKingGame {
             playerInput.classList.remove('drag-over');
         }
         if (this.draggedPlayerIndex !== null && this.draggedPlayerIndex !== dropIndex) {
-            this.viewModel.reorderTempPlayers(this.draggedPlayerIndex, dropIndex);
+            // When dragging down, insert AFTER the drop target
+            // When dragging up, insert AT the drop target position
+            let targetIndex = dropIndex;
+            if (this.draggedPlayerIndex < dropIndex) {
+                // Dragging down - we want to place it after the drop target
+                targetIndex = dropIndex + 1;
+            }
+            this.viewModel.reorderTempPlayers(this.draggedPlayerIndex, targetIndex);
             this.updatePlayerInputs();
         }
     }
@@ -1896,7 +1903,9 @@ class SkullKingGame {
         target.classList.remove('dragging');
         // Remove all drag-over classes
         const allInputs = document.querySelectorAll('.player-name-input');
-        allInputs.forEach(input => input.classList.remove('drag-over'));
+        allInputs.forEach(input => {
+            input.classList.remove('drag-over');
+        });
         this.draggedPlayerIndex = null;
     }
     // Touch handlers for mobile support
@@ -1972,7 +1981,14 @@ class SkullKingGame {
         if (dropTarget && dropTarget !== this.draggedElement) {
             const dropIndex = parseInt(dropTarget.getAttribute('data-player-index') || '0');
             if (!isNaN(dropIndex) && this.draggedPlayerIndex !== dropIndex) {
-                this.viewModel.reorderTempPlayers(this.draggedPlayerIndex, dropIndex);
+                // When dragging down, insert AFTER the drop target
+                // When dragging up, insert AT the drop target position
+                let targetIndex = dropIndex;
+                if (this.draggedPlayerIndex < dropIndex) {
+                    // Dragging down - we want to place it after the drop target
+                    targetIndex = dropIndex + 1;
+                }
+                this.viewModel.reorderTempPlayers(this.draggedPlayerIndex, targetIndex);
                 this.updatePlayerInputs();
             }
         }
