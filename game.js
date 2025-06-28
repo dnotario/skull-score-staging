@@ -2125,6 +2125,14 @@ class SkullKingGame {
             appTitle.content = this.t('app_title');
     }
     updateStaticContent() {
+        // Update all elements with data-i18n attributes
+        const elementsWithI18n = document.querySelectorAll('[data-i18n]');
+        elementsWithI18n.forEach(element => {
+            const key = element.getAttribute('data-i18n');
+            if (key) {
+                element.textContent = this.t(key);
+            }
+        });
         // Header
         const headerTitle = document.getElementById('header-title');
         if (headerTitle)
