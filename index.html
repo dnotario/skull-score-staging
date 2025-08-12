@@ -88,7 +88,7 @@
     <link rel="preconnect" href="https://www.googletagmanager.com">
     <link rel="dns-prefetch" href="https://www.google-analytics.com">
     
-    <link rel="stylesheet" href="styles.css?v=20250708124653">
+    <link rel="stylesheet" href="styles.css?v=20250812061548">
     
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-38L33WX5SY"></script>
@@ -213,6 +213,16 @@
                     <h3><span id="round-label" data-i18n="round_label">Round</span> <span id="round-number">1</span></h3>
                 </div>
                 <div id="round-inputs" class="round-inputs"></div>
+                <div class="expansion-indicators">
+                    <label class="expansion-checkbox">
+                        <input type="checkbox" id="kraken-played">
+                        <span data-i18n="kraken_played">🐙 Kraken played</span>
+                    </label>
+                    <label class="expansion-checkbox">
+                        <input type="checkbox" id="whale-played">
+                        <span data-i18n="whale_played">🐋 White Whale played</span>
+                    </label>
+                </div>
                 <div class="record-round-container">
                     <button id="add-round-btn" class="btn btn-primary" data-i18n="record_round_button" aria-label="Save round scores and advance to next round">Record Round</button>
                 </div>
@@ -383,6 +393,15 @@
                         </div>
                         <span class="bonus-points">+<span id="points-mermaidSkull">0</span></span>
                     </div>
+                    <div class="bonus-item">
+                        <span class="bonus-item-label" id="bonus-label-loot" data-i18n="bonus_label_loot">Loot Alliances</span>
+                        <div class="bonus-counter">
+                            <button class="counter-btn" id="loot-minus" onclick="game.updateBonusCounter('loot', -1)">−</button>
+                            <span class="counter-value" id="counter-loot">0</span>
+                            <button class="counter-btn" id="loot-plus" onclick="game.updateBonusCounter('loot', 1)">+</button>
+                        </div>
+                        <span class="bonus-points">+<span id="points-loot">0</span></span>
+                    </div>
                 </div>
                 
                 <!-- Total -->
@@ -399,6 +418,6 @@
         </div>
     </div>
 
-    <script src="game.js?v=20250708124653"></script>
+    <script src="game.js?v=20250812061548"></script>
 </body>
 </html>
