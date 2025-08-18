@@ -523,6 +523,9 @@ const supportedLanguages = ['en', 'de', 'es'];
  * 2. Run: npm run build (or npm run dev for watch mode)
  * 3. The game.js file will be automatically updated
  */
+// Translations will be included in the same file after compilation
+// Game constants
+const MAX_PLAYERS = 8;
 // Translation system class
 class GameTranslationSystem {
     constructor() {
@@ -693,7 +696,7 @@ class GameViewModel {
         if (validNames.length < 2) {
             return this.t('min_players_error');
         }
-        if (validNames.length > 8) {
+        if (validNames.length > MAX_PLAYERS) {
             return this.t('max_players_error');
         }
         // Check for duplicate names
@@ -1293,12 +1296,30 @@ class SkullKingGame {
     }
     handleAddPlayer() {
         const tempPlayers = this.viewModel.getTempPlayers();
-        if (tempPlayers.length >= 8) {
+        if (tempPlayers.length >= MAX_PLAYERS) {
             this.showError(this.t('max_players_add_error'));
             return;
         }
         this.viewModel.addTempPlayer();
         this.updatePlayerInputs();
+        // Focus on the newly added player input
+        setTimeout(() => {
+            const newIndex = this.viewModel.getTempPlayers().length - 1;
+            const newInput = document.getElementById(`player-${newIndex}`);
+            if (newInput) {
+                newInput.focus();
+            }
+        }, 0);
+    }
+    handlePlayerInputEnter(index, event) {
+        // Check if Enter key was pressed
+        if (event.key === 'Enter') {
+            const tempPlayers = this.viewModel.getTempPlayers();
+            // Only add new player if we're on the last input and under the limit
+            if (index === tempPlayers.length - 1 && tempPlayers.length < MAX_PLAYERS) {
+                this.handleAddPlayer();
+            }
+        }
     }
     handleStartGame() {
         // Save any uncommitted input values before starting the game
@@ -1445,13 +1466,14 @@ class SkullKingGame {
                 </div>
                 <input type="text" id="player-${index}" placeholder="${this.t('player_placeholder')}" value="${name}" 
                        oninput="game.updateTempPlayer(${index}, this.value)"
-                       onchange="game.updateTempPlayer(${index}, this.value)">
+                       onchange="game.updateTempPlayer(${index}, this.value)"
+                       onkeydown="game.handlePlayerInputEnter(${index}, event)">
                 <button class="btn-remove" onclick="game.removePlayer(${index})" title="Remove player">✕</button>
             </div>
         `).join('');
-        // Hide/show Add Pirate button based on player count (max 8)
+        // Hide/show Add Pirate button based on player count
         if (addPlayerBtn) {
-            if (tempPlayers.length >= 8) {
+            if (tempPlayers.length >= MAX_PLAYERS) {
                 addPlayerBtn.style.display = 'none';
             }
             else {
@@ -1494,7 +1516,7 @@ class SkullKingGame {
                     </div>
                     <div class="input-group">
                         <label for="actual-player-${index}" class="input-label">${this.t('won_label')}</label>
-                        <input type="number" id="actual-player-${index}" placeholder="0" min="0" max="${maxTricks}" oninput="game.updateRoundScoreByIndex(${index})">
+                        <input type="number" id="actual-player-${index}" placeholder="0" min="0" max="${maxTricks}" oninput="game.handleActualInput(${index})">
                     </div>
                     <div class="input-group">
                         <label for="bonus-player-${index}" class="input-label">${this.t('bonus_label')}</label>
@@ -1916,6 +1938,17 @@ class SkullKingGame {
         if (playerIndex >= 0 && playerIndex < players.length) {
             this.updateRoundScoreInternalByIndex(playerIndex);
         }
+    }
+    handleActualInput(playerIndex) {
+        const bidInput = document.getElementById(`bid-player-${playerIndex}`);
+        const actualInput = document.getElementById(`actual-player-${playerIndex}`);
+        // If actual has value but bid is empty, auto-fill bid with 0
+        if ((actualInput === null || actualInput === void 0 ? void 0 : actualInput.value) && actualInput.value.trim() !== '' &&
+            bidInput && bidInput.value.trim() === '') {
+            bidInput.value = '0';
+        }
+        // Continue with normal score update
+        this.updateRoundScoreByIndex(playerIndex);
     }
     handleUpdateLastRound() {
         // Remove the last round and get its data for pre-filling
