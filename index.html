@@ -88,7 +88,7 @@
     <link rel="preconnect" href="https://www.googletagmanager.com">
     <link rel="dns-prefetch" href="https://www.google-analytics.com">
     
-    <link rel="stylesheet" href="styles.css?v=20250818050750">
+    <link rel="stylesheet" href="styles.css?v=20250819052457">
     
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-38L33WX5SY"></script>
@@ -186,7 +186,9 @@
             <div class="current-scores parchment">
                 <div class="score-header">
                     <h2 id="current-bounty-title" data-i18n="current_bounty_title">Current Bounty</h2>
-                    <button id="read-scores-btn" class="btn btn-primary" data-i18n="read_scores_button" aria-label="Read current scores aloud">🔊 Read Scores</button>
+                    <button id="read-scores-btn" class="btn btn-primary" aria-label="Read current scores aloud">
+                        🔊 Read Scores (<a href="#" id="speed-toggle-link" class="speed-link">1x</a>)
+                    </button>
                 </div>
                 <div id="score-display" class="score-grid"></div>
                 
@@ -418,6 +420,6 @@
         </div>
     </div>
 
-    <script src="game.js?v=20250818050750"></script>
+    <script src="game.js?v=20250819052457"></script>
 </body>
 </html>

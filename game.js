@@ -1237,6 +1237,7 @@ class GameViewModel {
 class SkullKingGame {
     constructor() {
         this.deferredPrompt = null;
+        this.speechSpeed = SkullKingGame.SPEED_NORMAL;
         // Bonus Calculator Modal Methods
         this.currentBonusPlayerIndex = -1;
         this.bonusCounters = {
@@ -1249,6 +1250,7 @@ class SkullKingGame {
         };
         this.playerBonusData = {};
         this.viewModel = new GameViewModel();
+        this.loadSpeechSpeed();
         this.init();
     }
     init() {
@@ -1275,7 +1277,19 @@ class SkullKingGame {
         const addRoundBtn = document.getElementById('add-round-btn');
         addRoundBtn === null || addRoundBtn === void 0 ? void 0 : addRoundBtn.addEventListener('click', () => this.handleAddRound());
         const readScoresBtn = document.getElementById('read-scores-btn');
-        readScoresBtn === null || readScoresBtn === void 0 ? void 0 : readScoresBtn.addEventListener('click', () => this.readScores());
+        readScoresBtn === null || readScoresBtn === void 0 ? void 0 : readScoresBtn.addEventListener('click', (e) => {
+            const target = e.target;
+            // Handle speed toggle link click
+            if (target.id === 'speed-toggle-link') {
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleSpeechSpeed();
+            }
+            else {
+                // Handle read scores button click
+                this.readScores();
+            }
+        });
         // Modal
         const modalConfirm = document.getElementById('modal-confirm');
         modalConfirm === null || modalConfirm === void 0 ? void 0 : modalConfirm.addEventListener('click', () => this.handleModalConfirm());
@@ -1398,6 +1412,11 @@ class SkullKingGame {
     // View Methods
     updateUI() {
         const gameState = this.viewModel.getGameState();
+        // Update speed toggle link text
+        const speedToggleLink = document.getElementById('speed-toggle-link');
+        if (speedToggleLink) {
+            speedToggleLink.textContent = this.getSpeedDisplayText();
+        }
         if (gameState.players.length === 0) {
             this.showLanding();
         }
@@ -1728,6 +1747,40 @@ class SkullKingGame {
         };
         return settings[language] || settings['en'];
     }
+    loadSpeechSpeed() {
+        const saved = localStorage.getItem('skull-king-speech-speed');
+        if (saved) {
+            const speed = parseFloat(saved);
+            if (SkullKingGame.VALID_SPEEDS.includes(speed)) {
+                this.speechSpeed = speed;
+            }
+        }
+    }
+    saveSpeechSpeed() {
+        localStorage.setItem('skull-king-speech-speed', this.speechSpeed.toString());
+    }
+    getSpeedDisplayText() {
+        var _a;
+        return ((_a = SkullKingGame.SPEED_CONFIG[this.speechSpeed]) === null || _a === void 0 ? void 0 : _a.display) || '1x';
+    }
+    toggleSpeechSpeed() {
+        // Cycle through NORMAL -> MEDIUM -> FAST -> NORMAL
+        if (this.speechSpeed === SkullKingGame.SPEED_NORMAL) {
+            this.speechSpeed = SkullKingGame.SPEED_MEDIUM;
+        }
+        else if (this.speechSpeed === SkullKingGame.SPEED_MEDIUM) {
+            this.speechSpeed = SkullKingGame.SPEED_FAST;
+        }
+        else {
+            this.speechSpeed = SkullKingGame.SPEED_NORMAL;
+        }
+        this.saveSpeechSpeed();
+        // Update link text
+        const speedToggleLink = document.getElementById('speed-toggle-link');
+        if (speedToggleLink) {
+            speedToggleLink.textContent = this.getSpeedDisplayText();
+        }
+    }
     readScores() {
         // Check if browser supports speech synthesis
         if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
@@ -1747,7 +1800,8 @@ class SkullKingGame {
             currentLang === 'es' ? 'es-ES' : 'en-US';
         // Set language-specific speech parameters for pirate effect
         const speechSettings = this.getLanguageSpecificSpeechSettings(currentLang);
-        utterance.rate = speechSettings.rate;
+        // Apply speed multiplier to the base rate
+        utterance.rate = speechSettings.rate * this.speechSpeed;
         utterance.pitch = speechSettings.pitch;
         utterance.volume = speechSettings.volume;
         // Function to set language-appropriate voice
@@ -2148,8 +2202,11 @@ class SkullKingGame {
         if (currentBountyTitle)
             currentBountyTitle.textContent = this.t('current_bounty_title');
         const readScoresBtn = document.getElementById('read-scores-btn');
-        if (readScoresBtn)
-            readScoresBtn.innerHTML = `🔊 ${this.t('read_scores_button').replace('🔊 ', '')}`;
+        if (readScoresBtn) {
+            const speedText = this.getSpeedDisplayText();
+            readScoresBtn.innerHTML = `🔊 ${this.t('read_scores_button').replace('🔊 ', '')} (<a href="#" id="speed-toggle-link" class="speed-link">${speedText}</a>)`;
+            // Event handling is done via delegation in setupEventListeners()
+        }
         const gameCompleteTitle = document.getElementById('game-complete-title');
         if (gameCompleteTitle)
             gameCompleteTitle.textContent = this.t('game_complete_title');
@@ -2542,6 +2599,21 @@ class SkullKingGame {
         }
     }
 }
+// Speech speed constants
+SkullKingGame.SPEED_NORMAL = 1.0;
+SkullKingGame.SPEED_MEDIUM = 1.5;
+SkullKingGame.SPEED_FAST = 2.0;
+// Speed configuration with display values
+SkullKingGame.SPEED_CONFIG = {
+    [SkullKingGame.SPEED_NORMAL]: { value: 1.0, display: '1x' },
+    [SkullKingGame.SPEED_MEDIUM]: { value: 1.5, display: '1.5x' },
+    [SkullKingGame.SPEED_FAST]: { value: 2.0, display: '2x' }
+};
+SkullKingGame.VALID_SPEEDS = [
+    SkullKingGame.SPEED_NORMAL,
+    SkullKingGame.SPEED_MEDIUM,
+    SkullKingGame.SPEED_FAST
+];
 // Initialize game
 const game = new SkullKingGame();
 // Expose game instance and class globally
