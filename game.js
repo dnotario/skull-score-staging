@@ -49,6 +49,12 @@ const enTranslation = {
     won_label: "Won",
     bonus_label: "Bonus",
     score_label: "Score",
+    // Graybeard (2-player mode)
+    graybeard_name: "Graybeard 👻",
+    graybeard_tricks_label: "Tricks Won",
+    graybeard_negative_tricks_error: "Graybeard's tricks cannot be negative!",
+    graybeard_exceeds_tricks_error: "Graybeard cannot win more than {maxTricks} tricks!",
+    total_tricks_mismatch_with_graybeard_error: "Total tricks won ({totalActual} including Graybeard) must equal {maxTricks} for round {round}!",
     // Modal
     confirm_action_title: "Confirm Action",
     keep_names_label: "Keep player names",
@@ -216,6 +222,12 @@ const deTranslation = {
     won_label: "Gewonnen",
     bonus_label: "Bonus",
     score_label: "Punkte",
+    // Graybeard (2-player mode)
+    graybeard_name: "Graubart 👻",
+    graybeard_tricks_label: "Gewonnene Stiche",
+    graybeard_negative_tricks_error: "Graubarts Stiche können nicht negativ sein!",
+    graybeard_exceeds_tricks_error: "Graubart kann nicht mehr als {maxTricks} Stiche gewinnen!",
+    total_tricks_mismatch_with_graybeard_error: "Gesamtstiche ({totalActual} mit Graubart) müssen {maxTricks} für Runde {round} sein!",
     // Modal
     confirm_action_title: "Aktion Bestätigen",
     keep_names_label: "Spielernamen behalten",
@@ -383,6 +395,12 @@ const esTranslation = {
     won_label: "Ganadas",
     bonus_label: "Bonus",
     score_label: "Puntos",
+    // Graybeard (2-player mode)
+    graybeard_name: "Barba Gris 👻",
+    graybeard_tricks_label: "Bazas Ganadas",
+    graybeard_negative_tricks_error: "¡Las bazas de Barba Gris no pueden ser negativas!",
+    graybeard_exceeds_tricks_error: "¡Barba Gris no puede ganar más de {maxTricks} bazas!",
+    total_tricks_mismatch_with_graybeard_error: "¡Total de bazas ganadas ({totalActual} con Barba Gris) debe ser {maxTricks} para ronda {round}!",
     // Modal
     confirm_action_title: "Confirmar Acción",
     keep_names_label: "Mantener nombres de jugadores",
@@ -651,6 +669,10 @@ class GameViewModel {
         // Also save as a separate preference
         localStorage.setItem('skull-king-scoring-mode', mode);
     }
+    // Graybeard Management
+    isGraybeardActive() {
+        return this.state.graybeardActive === true;
+    }
     // Player Management
     getTempPlayers() {
         return [...this.tempPlayers];
@@ -708,6 +730,8 @@ class GameViewModel {
         this.state.players = validNames.map(name => ({ name: name.trim(), score: 0 }));
         this.state.rounds = [];
         this.state.currentRound = 1;
+        // Automatically activate Graybeard for 2-player games
+        this.state.graybeardActive = validNames.length === 2;
         this.saveState();
         // Track analytics
         this.trackEvent('game_start', {
@@ -851,7 +875,7 @@ class GameViewModel {
     getMaxTricksForCurrentRound() {
         return this.getCardsPerRound(this.state.currentRound, this.state.players.length);
     }
-    validateRoundData(data, roundNumber, krakenPlayed = false, whalePlayed = false) {
+    validateRoundData(data, roundNumber, krakenPlayed = false, whalePlayed = false, graybeardTricks = 0) {
         const targetRound = roundNumber || this.state.currentRound;
         // Validate each player's input
         for (const [playerName, playerData] of Object.entries(data)) {
@@ -861,24 +885,43 @@ class GameViewModel {
                 return validationError;
             }
         }
+        // Validate Graybeard's tricks if active
+        if (this.isGraybeardActive()) {
+            if (graybeardTricks < 0) {
+                return this.t('graybeard_negative_tricks_error', { fallback: "Graybeard's tricks cannot be negative!" });
+            }
+            const maxTricks = this.getCardsPerRound(targetRound, this.state.players.length);
+            if (graybeardTricks > maxTricks) {
+                return this.t('graybeard_exceeds_tricks_error', {
+                    fallback: "Graybeard cannot win more than {maxTricks} tricks!",
+                    maxTricks: maxTricks.toString()
+                });
+            }
+        }
         // Validate that total actual wins equals the number of tricks available (minus destroyed tricks)
         // getCardsPerRound returns cards per player, which equals total tricks in the round
         const totalTricks = this.getCardsPerRound(targetRound, this.state.players.length);
         const destroyedTricks = (krakenPlayed ? 1 : 0) + (whalePlayed ? 1 : 0);
         const expectedTricks = totalTricks - destroyedTricks;
         const totalActualWins = Object.values(data).reduce((sum, playerData) => sum + playerData.actual, 0);
-        if (totalActualWins !== expectedTricks) {
-            return this.t('total_tricks_mismatch_error', {
-                totalActual: totalActualWins.toString(),
+        // Include Graybeard's tricks in the total if active
+        const totalWinsIncludingGraybeard = totalActualWins + (this.isGraybeardActive() ? graybeardTricks : 0);
+        if (totalWinsIncludingGraybeard !== expectedTricks) {
+            const errorKey = this.isGraybeardActive() ? 'total_tricks_mismatch_with_graybeard_error' : 'total_tricks_mismatch_error';
+            return this.t(errorKey, {
+                totalActual: totalWinsIncludingGraybeard.toString(),
                 maxTricks: expectedTricks.toString(),
                 round: targetRound.toString(),
-                playerCount: this.state.players.length.toString()
+                playerCount: this.state.players.length.toString(),
+                fallback: this.isGraybeardActive() ?
+                    `Total tricks won (${totalWinsIncludingGraybeard} including Graybeard) must equal ${expectedTricks} for round ${targetRound}!` :
+                    `Total tricks won (${totalWinsIncludingGraybeard}) must equal ${expectedTricks} for round ${targetRound} with ${this.state.players.length} players!`
             });
         }
         return null; // Valid
     }
-    addRound(data, krakenPlayed = false, whalePlayed = false) {
-        const validationError = this.validateRoundData(data, undefined, krakenPlayed, whalePlayed);
+    addRound(data, krakenPlayed = false, whalePlayed = false, graybeardTricks = 0) {
+        const validationError = this.validateRoundData(data, undefined, krakenPlayed, whalePlayed, graybeardTricks);
         if (validationError) {
             return validationError;
         }
@@ -887,7 +930,8 @@ class GameViewModel {
             playerData: [],
             commentary: '',
             krakenPlayed,
-            whalePlayed
+            whalePlayed,
+            graybeardTricksWon: this.isGraybeardActive() ? graybeardTricks : 0
         };
         // Process each player's data
         for (const player of this.state.players) {
@@ -1351,6 +1395,7 @@ class SkullKingGame {
         this.updateUI();
     }
     handleAddRound() {
+        var _a;
         const gameState = this.viewModel.getGameState();
         const roundData = this.collectRoundData(gameState.players);
         // Get expansion card checkbox states
@@ -1358,7 +1403,14 @@ class SkullKingGame {
         const whaleCheckbox = document.getElementById('whale-played');
         const krakenPlayed = (krakenCheckbox === null || krakenCheckbox === void 0 ? void 0 : krakenCheckbox.checked) || false;
         const whalePlayed = (whaleCheckbox === null || whaleCheckbox === void 0 ? void 0 : whaleCheckbox.checked) || false;
-        const error = this.viewModel.addRound(roundData, krakenPlayed, whalePlayed);
+        // Get Graybeard's tricks if active
+        let graybeardTricks = 0;
+        if (this.viewModel.isGraybeardActive()) {
+            const graybeardInput = document.getElementById('graybeard-tricks');
+            const graybeardValue = ((_a = graybeardInput === null || graybeardInput === void 0 ? void 0 : graybeardInput.value) === null || _a === void 0 ? void 0 : _a.trim()) || '0';
+            graybeardTricks = parseInt(graybeardValue);
+        }
+        const error = this.viewModel.addRound(roundData, krakenPlayed, whalePlayed, graybeardTricks);
         if (error) {
             this.showError(error);
             return;
@@ -1525,7 +1577,7 @@ class SkullKingGame {
         if (roundNumberEl) {
             roundNumberEl.textContent = roundDisplay;
         }
-        container.innerHTML = players.map((player, index) => `
+        let html = players.map((player, index) => `
             <div class="player-round-input">
                 <h4>${player.name}</h4>
                 <div class="round-input-row">
@@ -1552,6 +1604,22 @@ class SkullKingGame {
                 </div>
             </div>
         `).join('');
+        // Add Graybeard input if active (2-player game)
+        if (this.viewModel.isGraybeardActive()) {
+            html += `
+                <div class="player-round-input graybeard-row">
+                    <h4>${this.t('graybeard_name', { fallback: 'Graybeard 👻' })}</h4>
+                    <div class="round-input-row">
+                        <div class="input-group">
+                            <label for="graybeard-tricks" class="input-label">${this.t('graybeard_tricks_label', { fallback: 'Tricks Won' })}</label>
+                            <input type="number" id="graybeard-tricks" placeholder="0" min="0" max="${maxTricks}">
+                        </div>
+                        <div class="graybeard-spacer"></div>
+                    </div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
         // Initialize computed scores for all players
         players.forEach((player, index) => this.updateRoundScoreInternalByIndex(index));
     }
@@ -1599,6 +1667,15 @@ class SkullKingGame {
                             <span>${data.roundScore > 0 ? '+' : ''}${data.roundScore}</span>
                         </div>
                     `).join('')}
+                    ${round.graybeardTricksWon !== undefined ? `
+                        <div class="player-round-data graybeard-round-data">
+                            <strong>${this.t('graybeard_name', { fallback: 'Graybeard 👻' })}</strong>
+                            <span>-</span>
+                            <span>${round.graybeardTricksWon}</span>
+                            <span>-</span>
+                            <span>-</span>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
