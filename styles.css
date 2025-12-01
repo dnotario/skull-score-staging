@@ -407,7 +407,7 @@ input[type="text"]:focus {
 }
 
 /* Scoring Mode Selection */
-.scoring-mode-section {
+.option-section {
     margin-top: 2.5rem;
     margin-bottom: 1rem;
     padding: 1rem;
@@ -416,7 +416,7 @@ input[type="text"]:focus {
     border: 2px solid rgba(212, 175, 55, 0.3);
 }
 
-.scoring-mode-section h3 {
+.option-section h3 {
     font-size: 1.3rem;
     color: #2c1810;
     margin-bottom: 1rem;
@@ -424,31 +424,23 @@ input[type="text"]:focus {
     text-shadow: 1px 1px 2px rgba(212, 175, 55, 0.3);
 }
 
-.scoring-mode-options {
+.option-list {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
 }
 
-.scoring-mode-option {
+.option-card {
     display: flex;
     align-items: flex-start;
     padding: 0.75rem;
     background: rgba(244, 228, 193, 0.9);
-    border: 2px solid transparent;
+    border: 2px solid rgba(212, 175, 55, 0.2);
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.3s ease;
 }
 
-.scoring-mode-option:hover {
-    background: rgba(244, 228, 193, 0.95);
-    border-color: #d4af37;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-
-.scoring-mode-option input[type="radio"] {
+.option-card input[type="radio"] {
     margin-right: 0.75rem;
     margin-top: 0.2rem;
     width: 20px;
@@ -456,32 +448,64 @@ input[type="text"]:focus {
     cursor: pointer;
 }
 
-.scoring-mode-option input[type="radio"]:checked + .scoring-mode-content {
+.option-card input[type="radio"]:checked + .option-content {
     font-weight: bold;
 }
 
-.scoring-mode-option:has(input[type="radio"]:checked) {
+.option-card:has(input[type="radio"]:checked) {
     background: rgba(212, 175, 55, 0.2);
     border-color: #d4af37;
     box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
 }
 
-.scoring-mode-content {
+.option-card input[type="checkbox"] {
+    margin-right: 0.75rem;
+    margin-top: 0.2rem;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #d4af37;
+}
+
+.option-card input[type="checkbox"]:checked + .option-content {
+    font-weight: bold;
+}
+
+.option-card:has(input[type="checkbox"]:checked) {
+    background: rgba(212, 175, 55, 0.2);
+    border-color: #d4af37;
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+}
+
+.option-content {
     flex: 1;
 }
 
-.scoring-mode-content strong {
+.option-content strong {
     display: block;
     font-size: 1.1rem;
     color: #2c1810;
     margin-bottom: 0.25rem;
 }
 
-.scoring-mode-content p {
+.option-content p {
     font-size: 0.9rem;
     color: #4a4a4a;
     margin: 0;
     line-height: 1.4;
+}
+.expansion-pack-option input[type="checkbox"] {
+    margin-right: 0.75rem;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #d4af37;
+}
+
+.expansion-pack-option span {
+    font-size: 1.05rem;
+    color: #2c1810;
+    font-weight: 500;
 }
 
 /* Global Actions */
@@ -1431,36 +1455,36 @@ body.game-active .landing-only {
 
 /* Mobile styles for scoring mode */
 @media (max-width: 600px) {
-    .scoring-mode-section {
+    .option-section {
         margin-top: 1.5rem;
         margin-bottom: 1.5rem;
         padding: 0.75rem;
     }
     
-    .scoring-mode-section h3 {
+    .option-section h3 {
         font-size: 1.1rem;
         margin-bottom: 0.75rem;
     }
     
-    .scoring-mode-options {
+    .option-list {
         gap: 0.5rem;
     }
     
-    .scoring-mode-option {
+    .option-card {
         padding: 0.5rem;
     }
     
-    .scoring-mode-option input[type="radio"] {
+    .option-card input[type="radio"] {
         width: 18px;
         height: 18px;
         margin-right: 0.5rem;
     }
     
-    .scoring-mode-content strong {
+    .option-content strong {
         font-size: 1rem;
     }
     
-    .scoring-mode-content p {
+    .option-content p {
         font-size: 0.85rem;
     }
 }
@@ -1556,6 +1580,21 @@ body.game-active .landing-only {
     border-radius: 4px;
 }
 
+.bonus-category.expansion-bonuses {
+    background: rgba(0, 100, 150, 0.08);
+    border-color: #2a9d8f;
+}
+
+.expansion-header {
+    color: #2a9d8f;
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 0.75rem;
+    text-align: center;
+    border-bottom: 1px solid rgba(42, 157, 143, 0.3);
+    padding-bottom: 0.5rem;
+}
+
 .bonus-category h4 {
     color: #654321;
     font-size: 1.1rem;
@@ -1633,6 +1672,10 @@ body.game-active .landing-only {
     min-width: 60px;
     text-align: right;
     font-size: 0.9rem;
+}
+
+.bonus-points.penalty {
+    color: #dc3545;
 }
 
 .bonus-total {
@@ -1815,3 +1858,4 @@ body.game-active .landing-only {
         min-width: 70px;
     }
 }
+/* Generic option section styles (semantic class names) */
