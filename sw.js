@@ -1,6 +1,6 @@
 // Service Worker for Skull King Score Keeper
-// Build timestamp: 2026-01-05T00-44-51-610Z
-const CACHE_VERSION = '2026-01-05T00-44-51-610Z';
+// Build timestamp: 2026-01-05T01-26-09-874Z
+const CACHE_VERSION = '2026-01-05T01-26-09-874Z';
 const CACHE_NAME = `skull-king-v${CACHE_VERSION}`;
 const urlsToCache = [
   './',
