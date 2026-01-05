@@ -1082,7 +1082,11 @@ class GameViewModel {
                 bonus: playerData.bonus
             };
         }
-        return result;
+        return {
+            playerData: result,
+            trickLost: lastRound.trickLost || false,
+            graybeardTricksWon: lastRound.graybeardTricksWon || 0
+        };
     }
     // Modal Management
     setModalConfirmCallback(callback) {
@@ -2189,7 +2193,7 @@ class SkullKingGame {
         this.updateUI();
         // Populate the inputs with the removed round's data for editing
         const players = this.viewModel.getPlayers();
-        for (const [playerName, data] of Object.entries(lastRoundData)) {
+        for (const [playerName, data] of Object.entries(lastRoundData.playerData)) {
             // Find player index by name
             const playerIndex = players.findIndex((p) => p.name === playerName);
             if (playerIndex === -1)
@@ -2215,6 +2219,18 @@ class SkullKingGame {
             }
             // Update the computed score for this player
             this.updateRoundScoreInternalByIndex(playerIndex);
+        }
+        // Restore expansion card checkbox state
+        const trickLostCheckbox = document.getElementById('trick-lost');
+        if (trickLostCheckbox) {
+            trickLostCheckbox.checked = lastRoundData.trickLost;
+        }
+        // Restore Graybeard tricks input if Graybeard is active
+        if (this.viewModel.isGraybeardActive()) {
+            const graybeardInput = document.getElementById('graybeard-tricks');
+            if (graybeardInput) {
+                graybeardInput.value = lastRoundData.graybeardTricksWon.toString();
+            }
         }
         // Scroll to the round inputs section for editing
         const roundInputsSection = document.getElementById('new-round');
